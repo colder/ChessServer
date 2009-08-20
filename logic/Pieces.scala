@@ -17,6 +17,10 @@ class Piece(val color: ChessTeam, val typ: PieceType, initPos: Position) {
         pos = p
     }
 
+    override def toString = {
+        color+" "+typ
+    }
+
     /* Basic moves that do not depend on other pieces 
      * Some moves might be removed or added depending on the confuguration of the board
      */

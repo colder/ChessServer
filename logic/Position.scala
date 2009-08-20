@@ -31,6 +31,9 @@ object Position {
     def isValidOffset(p: Position, ox: Int, oy: Int) = isValid(p.x+ox, p.y+oy)
 }
 
+
 class IllegalPositionException(x: Int, y: Int) extends RuntimeException {
     override def getMessage = "Position("+x+","+y+") is out of range"
 }
+
+case class Move(from: Position, to: Position);

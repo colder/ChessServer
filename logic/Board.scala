@@ -5,6 +5,10 @@ import scala.collection.mutable.HashMap;
 
 class Board {
 
+    /* Status of the board, necessary to allow/discard moves */
+    var turn: ChessTeam = White
+    var lastMovedPiece: Option[Piece] = None
+
     /* Careful! Pieces need to stay in sync with the board */
     private var capturedPieces: List[Piece] = Nil;
     private var slots: HashMap[Position, Piece] = new HashMap[Position, Piece]();
@@ -74,6 +78,13 @@ class Board {
     def draw = {
         def line = println("     +-----+-----+-----+-----+-----+-----+-----+------")
 
+        println
+        println("Turn: "+turn)
+        println("Last Move By: "+(lastMovedPiece match { case Some(p) => p; case None => "None"}))
+        println
+        println
+        println("     "+((0 to 7) map { x: Int => "   "+('A'+x).toChar+"  " }).mkString)
+        println
         line
         for (yb <- 1 to 8) {
             val y = 9-yb
@@ -96,8 +107,9 @@ class Board {
             line
         }
 
-        println;
+        println
         println("     "+((0 to 7) map { x: Int => "   "+('A'+x).toChar+"  " }).mkString)
+        println
 
     }
 
