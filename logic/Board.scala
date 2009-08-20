@@ -14,11 +14,9 @@ class Board {
     private var slots: HashMap[Position, Piece] = new HashMap[Position, Piece]();
 
 
-    def placePiece(color: ChessTeam, typ: PieceType, pos: Position) = slots get pos match {
-        case Some(op) => throw new BoardException("Position "+pos.algNotation+" is already occupied by "+op)
-        case None => slots(pos) = new Piece(color, typ, pos)
-    }
-
+    /*
+     * Functions used by the controller to make the game evolve
+     */
     def movePiece(pi: Piece, posTo: Position) = slots get posTo match {
         case Some(op) => throw new BoardException("Slot "+posTo.algNotation+" is already occupied by "+op)
         case None => slots get pi.pos match {
@@ -31,13 +29,27 @@ class Board {
         }
     }
 
-    def capturePiece(pt: Piece) = slots get pt.pos match {
+    def nextTurn = turn = if (turn == White) Black else White
+
+    def capturePiece(pt: Piece) = {
+        removePiece(pt)
+        capturedPieces = pt :: capturedPieces
+    }
+
+    /*
+     * More general function that should generally not be used from outside
+     */
+    def removePiece(pt: Piece) = slots get pt.pos match {
         case Some(op) if (op == pt) =>
             slots -= pt.pos
-            capturedPieces = pt :: capturedPieces
         case _ => throw new BoardException("Warning! Board is out of sync: Slot "+pt.pos.algNotation+" is not occupied by "+pt)
     }
 
+
+    def placePiece(color: ChessTeam, typ: PieceType, pos: Position) = slots get pos match {
+        case Some(op) => throw new BoardException("Position "+pos.algNotation+" is already occupied by "+op)
+        case None => slots(pos) = new Piece(color, typ, pos)
+    }
 
     def initBoard = {
         // Pawns
