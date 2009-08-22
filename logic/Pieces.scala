@@ -9,13 +9,15 @@ case object Knight extends PieceType("N")
 case object Pawn extends PieceType("P")
 
 /* Immutable */
-case class Piece(val color: ChessTeam, val typ: PieceType, val pos: Position) {
+case class Piece(val color: ChessTeam, val typ: PieceType, val pos: Position, val moved: Int) {
 
-    def move(p: Position) = Piece(color, typ, p)
+    def move(p: Position) = Piece(color, typ, p, moved+1)
 
     override def toString = {
         color+" "+typ
     }
+
+    def hasMoved = moved > 0
 
     /* Basic moves that do not depend on other pieces 
      * Some moves might be removed or added depending on the confuguration of the board

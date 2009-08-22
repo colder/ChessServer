@@ -75,7 +75,7 @@ class CLIClient {
                         draw(from :: to :: board.path(from, to), Console.BOLD+Console.YELLOW_B)
                     case Analyze(pos) =>
                         board.slots get pos match {
-                            case Some(p) => draw(board.movesOptionsCheckKingSafety(p) map {_._1}, Console.WHITE_B);
+                            case Some(p) => draw(board.movesOptionsCheckKingSafety(p), Console.WHITE_B);
                             case None => println("< Error: Can't find any piece at pos "+pos);
                         }
                         
