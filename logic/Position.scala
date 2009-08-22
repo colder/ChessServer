@@ -12,6 +12,7 @@ package ChessServer.logic
 
 case class Position(val x: Int, val y: Int) {
 
+    def this(str: String) = this(str(0)-'a'+1, str(1)-'1'+1)
 
     def algNotation = ('a'+(x-1)).toChar+""+y;
 
@@ -32,8 +33,7 @@ object Position {
 }
 
 
-class IllegalPositionException(x: Int, y: Int) extends RuntimeException {
-    override def getMessage = "Position("+x+","+y+") is out of range"
-}
+class IllegalPositionException(x: Int, y: Int) extends RuntimeException("Position("+x+","+y+") is out of range");
+class InvalidPositionException(str: String) extends RuntimeException("Position("+str+") is invalid");
 
 case class Move(from: Position, to: Position);

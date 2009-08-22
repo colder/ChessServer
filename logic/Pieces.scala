@@ -1,21 +1,17 @@
 package ChessServer.logic
 
-abstract class PieceType(val ab: String);
-object King extends PieceType("K");
-object Queen extends PieceType("Q");
-object Rook extends PieceType("R");
-object Bishop extends PieceType("B");
-object Knight extends PieceType("N");
-object Pawn extends PieceType("P");
+abstract class PieceType(val ab: String)
+case object King extends PieceType("K")
+case object Queen extends PieceType("Q")
+case object Rook extends PieceType("R")
+case object Bishop extends PieceType("B")
+case object Knight extends PieceType("N")
+case object Pawn extends PieceType("P")
 
-class Piece(val color: ChessTeam, val typ: PieceType, initPos: Position) {
-    var pos = initPos;
-    var lastPos = initPos
+/* Immutable */
+case class Piece(val color: ChessTeam, val typ: PieceType, val pos: Position) {
 
-    def move(p: Position) = {
-        lastPos = pos
-        pos = p
-    }
+    def move(p: Position) = Piece(color, typ, p)
 
     override def toString = {
         color+" "+typ
@@ -37,11 +33,11 @@ class Piece(val color: ChessTeam, val typ: PieceType, initPos: Position) {
                     if (x != 0 || y != 0)
                         && Position.isValidOffset(pos, n*x, n*y)) yield pos.offset(n*x,n*y)
         case Rook =>
-            for (x <- List(0, 1); y <- List(0, 1); n <- List(-8, 8)
+            for (x <- List(0, 1); y <- List(0, 1); n <- -8 to 8
                     if x != y && n != 0
                        && Position.isValidOffset(pos, n*x, n*y)) yield pos.offset(n*x, n*y)
         case Bishop =>
-            for (x <- List(-1, 1); y <- List(-1, 1); n <- List(1, 8)
+            for (x <- List(-1, 1); y <- List(-1, 1); n <- 1 to 8
                     if Position.isValidOffset(pos, n*x, n*y)) yield pos.offset(n*x, n*y)
         case Knight =>
             for (x <- List(-1, -2, 1, 2); y <- List(-1, -2, 1, 2)

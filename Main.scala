@@ -2,9 +2,8 @@ package ChessServer;
 
 object Main {
     def main(args: Array[String]): Unit = {
-        val b = new logic.Board;
-        b.initBoard
+        val c = new client.CLIClient();
 
-        b.draw
+        c.start
     }
 }
