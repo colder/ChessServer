@@ -36,4 +36,4 @@ object Position {
 class IllegalPositionException(x: Int, y: Int) extends RuntimeException("Position("+x+","+y+") is out of range");
 class InvalidPositionException(str: String) extends RuntimeException("Position("+str+") is invalid");
 
-case class Move(from: Position, to: Position);
+case class Move(piece: Piece, posTo: Position);

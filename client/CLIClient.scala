@@ -24,6 +24,7 @@ class CLIClient {
 
         println
         println("Turn: "+board.turn)
+        println("Last Move: "+board.lastMove)
         println
         println
         println("     "+((0 to 7) map { x: Int => "   "+('A'+x).toChar+"  " }).mkString)

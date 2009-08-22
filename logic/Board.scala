@@ -5,7 +5,7 @@ import scala.collection.immutable.{HashMap,HashSet,Set};
 
 
 /* immutable */
-case class Board(val turn: ChessTeam, val slots: Map[Position, Piece], val capturedPieces: List[Piece]) {
+case class Board(val turn: ChessTeam, val slots: Map[Position, Piece], val capturedPieces: List[Piece], val lastMove: Move) {
     type Slots = Map[Position, Piece]
 
     val kingBlack = slots.values find { p => p.typ == King && p.color == Black } match {
@@ -29,14 +29,14 @@ case class Board(val turn: ChessTeam, val slots: Map[Position, Piece], val captu
         case Some(op) => throw new BoardException("Slot "+posTo.algNotation+" is already occupied by "+op)
         case None => slots get pi.pos match {
             case Some(op) if op == pi =>
-                Board(turn, (slots - pi.pos)(posTo) = pi.move(posTo), capturedPieces)
+                Board(turn, (slots - pi.pos)(posTo) = pi.move(posTo), capturedPieces, Move(pi, posTo))
             case _ => throw new BoardException("Warning! Board is out of sync: Slot "+pi.pos.algNotation+" is not occupied by "+pi)
         }
     }
 
-    def nextTurn: Board = Board(if (turn == White) Black else White, slots, capturedPieces)
+    def nextTurn: Board = Board(if (turn == White) Black else White, slots, capturedPieces, lastMove)
 
-    def capturePiece(pt: Piece): Board = Board(turn, removePiece(slots, pt), pt :: capturedPieces)
+    def capturePiece(pt: Piece): Board = Board(turn, removePiece(slots, pt), pt :: capturedPieces, lastMove)
 
     def removePiece(slots: Slots, pt: Piece): Slots = slots get pt.pos match {
         case Some(op) if (op == pt) =>
@@ -90,14 +90,35 @@ case class Board(val turn: ChessTeam, val slots: Map[Position, Piece], val captu
                 p.basicMoveOptions filter { x => isFree(x) || isForeign(p,x) } map { (_, Normal) }
 
             case Pawn =>
-                var pos = p.basicMoveOptions filter { pos => isFree(pos) } map { (_, Normal) }
+                var pos: List[(Position, Action)] = p.basicMoveOptions filter { pos => isFree(pos) } map { (_, Normal) }
 
                 // can capture in diagonal
                 val y = p.color match { case White => p.pos.y+1 case Black => p.pos.y-1 } 
-                pos ::: (for(x <- List(p.pos.x-1, p.pos.x+1) if (Position.isValid(x,y) && isForeign(p, Position(x,y)))) yield (Position(x,y), Normal));
+                pos :::= (for(x <- List(p.pos.x-1, p.pos.x+1) if (Position.isValid(x,y) && isForeign(p, Position(x,y)))) yield (Position(x,y), Normal));
 
                 // en passant
-                // TODO
+                if (p.pos.y == 5 && p.color == White || p.pos.y == 4 && p.color == Black) {
+                    println("Pawn is on the right rank!")
+                    // check right
+                    if (Position.isValid(p.pos.x+1, p.pos.y) && isForeign(p, p.pos.offset(+1,0))) {
+                        println("Right pos is occupied!")
+                        //Check that the right slot is 1) a pawn, 2) the last move was him moving 2 slots
+                        if (lastMove.piece.typ == Pawn && (List(2,7) contains lastMove.piece.pos.y)) {
+                            pos = ((Position(p.pos.x+1, y), EnPassant(p.pos.offset(+1,0)))) :: pos
+                        }
+                    }
+
+                    // check left
+                    if (Position.isValid(p.pos.x-1, p.pos.y) && isForeign(p, p.pos.offset(-1,0))) {
+                        println("Left pos is occupied!")
+                        //Check that the left slot is 1) a pawn, 2) the last move was him moving 2 slots
+                        if (lastMove.piece.typ == Pawn && (List(2,7) contains lastMove.piece.pos.y)) {
+                            pos = ((Position(p.pos.x-1, y), EnPassant(p.pos.offset(-1,0)))) :: pos
+                        }
+
+                    }
+                }
+                pos
             case King =>
                 p.basicMoveOptions filter { pos => (isForeign(p, pos) || isFree(pos)) } map { (_, Normal) }
                 // TODO: castling
@@ -114,12 +135,12 @@ case class Board(val turn: ChessTeam, val slots: Map[Position, Piece], val captu
 
     def performMove(p: Piece, posTo: Position, action: Action): Board = action match {
         case Normal => moveOrCapture(p, posTo)
-        case ExtraCapture(pos) => slots get pos match {
+        case EnPassant(pos) => slots get pos match {
             case Some(op) => moveOrCapture(p, posTo).capturePiece(op)
             case None => throw new BoardException("Cannot capture extra: Piece not found at "+pos)
         }
         case Promote => moveOrCapture(p, posTo)
-        case Castling(_) => throw new BoardException("not yet!")
+        case Castling => throw new BoardException("not yet!")
     }
 
     /* */
@@ -182,7 +203,7 @@ object Board {
         slots = placePiece(slots, Black, King, Position(5, 8))
 
 
-        Board(White, slots, Nil)
+        Board(White, slots, Nil, Move(Piece(White, King, Position(5,8)), Position(5,8)))
     }
 
 }
