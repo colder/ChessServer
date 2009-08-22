@@ -8,9 +8,18 @@ import scala.collection.immutable.{HashMap,HashSet,Set};
 case class Board(val turn: ChessTeam, val slots: Map[Position, Piece], val capturedPieces: List[Piece]) {
     type Slots = Map[Position, Piece]
 
-    /*
-     * Functions used by the controller to make the game evolve
-     */
+    val kingBlack = slots.values find { p => p.typ == King && p.color == Black } match {
+        case Some(op) => op
+        case None => throw new BoardException("Can't find any black kings in the pieces!")
+    }
+
+    val kingWhite = slots.values find { p => p.typ == King && p.color == White } match {
+        case Some(op) => op
+        case None => throw new BoardException("Can't find any white kings in the pieces!")
+    }
+
+    def king(color: ChessTeam) = if (color == White) kingWhite else kingBlack
+
     def movePiece(posFrom: Position, posTo: Position): Board = slots get posFrom match {
         case Some(p) => movePiece(p, posTo)
         case None => throw new BoardException("Slot "+posFrom+" contains no piece!")
@@ -33,6 +42,11 @@ case class Board(val turn: ChessTeam, val slots: Map[Position, Piece], val captu
         case Some(op) if (op == pt) =>
             slots - pt.pos
         case _ => throw new BoardException("Warning! Board is out of sync: Slot "+pt.pos.algNotation+" is not occupied by "+pt)
+    }
+
+    def moveOrCapture(p: Piece, pos: Position): Board = slots get pos match {
+        case Some(op) => capturePiece(op).movePiece(p, pos)
+        case None => movePiece(p, pos)
     }
 
 
@@ -98,6 +112,29 @@ case class Board(val turn: ChessTeam, val slots: Map[Position, Piece], val captu
         Map[Position, Action]()++posActions
     }
 
+    def performMove(p: Piece, posTo: Position, action: Action): Board = action match {
+        case Normal => moveOrCapture(p, posTo)
+        case ExtraCapture(pos) => slots get pos match {
+            case Some(op) => moveOrCapture(p, posTo).capturePiece(op)
+            case None => throw new BoardException("Cannot capture extra: Piece not found at "+pos)
+        }
+        case Promote => moveOrCapture(p, posTo)
+        case Castling(_) => throw new BoardException("not yet!")
+    }
+
+    /* */
+    def movesOptionsCheckKingSafety(pi: Piece): Map[Position, Action] = movesOptionsFor(pi) filter {  _ match {
+        case (pos, action) =>
+            /* Only select moves that do not endanger the King */
+            val newBoard = performMove(pi, pos, action)
+
+            val target = newBoard.king(turn).pos
+
+            val inDanger = newBoard.slots.values filter { _.color != turn } exists { newBoard.movesOptionsFor(_) contains target }
+
+            !inDanger
+    }}
+
 }
 
 object Board {
@@ -149,4 +186,5 @@ object Board {
     }
 
 }
+
 class BoardException(m: String) extends RuntimeException(m);
