@@ -73,6 +73,20 @@ class CLIClient {
                     case Move(from, to) =>
                         board = board.movePiece(from,to)
                         draw(from :: to :: board.path(from, to), Console.BOLD+Console.YELLOW_B)
+
+                    case PerformMove(from, to) =>
+                        board.slots get from match {
+                            case Some(p) =>
+                                if (board.movesOptionsCheckKingSafety(p) contains to) {
+                                    board = board.performMove(p,to)
+                                    draw(from :: to :: board.path(from, to), Console.BOLD+Console.YELLOW_B)
+                                } else {
+                                    draw(board.movesOptionsCheckKingSafety(p), Console.WHITE_B)
+                                    println("< Error: Can't move there!")
+                                }
+                            case None => println("< Error: Can't find any piece at pos "+from);
+                        }
+
                     case Analyze(pos) =>
                         board.slots get pos match {
                             case Some(p) => draw(board.movesOptionsCheckKingSafety(p), Console.WHITE_B);
@@ -87,12 +101,14 @@ class CLIClient {
                     continue = false
                 case e =>
                     println("< Error: "+e.getMessage)
+                    e.printStackTrace
             }
         }
     }
 
     abstract class Cmd
     case class Move(from: Position, to: Position) extends Cmd
+    case class PerformMove(from: Position, to: Position) extends Cmd
     case class Analyze(pos: Position) extends Cmd
     case class Unknown(str: String) extends Cmd
     object Quit extends Cmd
@@ -101,6 +117,7 @@ class CLIClient {
         try {
             str.split(" +").toList match {
                 case "m" :: pf :: pt :: Nil => Move(new Position(pf), new Position(pt))
+                case "pm" :: pf :: pt :: Nil => PerformMove(new Position(pf), new Position(pt))
                 case "a" :: p :: Nil => Analyze(new Position(p))
                 case "q" :: Nil => Quit
                 case "quit" :: Nil => Quit

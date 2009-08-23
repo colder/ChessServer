@@ -45,7 +45,7 @@ case class Piece(val color: ChessTeam, val typ: PieceType, val pos: Position, va
             for (x <- List(-1, -2, 1, 2); y <- List(-1, -2, 1, 2)
                     if x*x!=y*y && Position.isValidOffset(pos, x, y)) yield  pos.offset(x, y)
         case Pawn => 
-            if (pos.y == 0 || pos.y == 8)
+            if (pos.y == 1 || pos.y == 8)
                 Nil
             else color match {
                 case White => Position(pos.x, pos.y+1) :: (if (pos.y == 2) Position(pos.x, pos.y+2) :: Nil else Nil)

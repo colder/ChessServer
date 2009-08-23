@@ -84,60 +84,100 @@ case class Board(val turn: ChessTeam, val slots: Map[Position, Piece], val captu
     }
 
     /* calculates the positions at which the piece is allowed to move in the board */
-    def movesOptionsFor(p: Piece): Set[Position] = {
+    def basicMovesOptionsFor(p: Piece): Set[Position] = {
         val positions = p.typ match {
             case Knight =>
                 p.basicMoveOptions filter { x => isFree(x) || isForeign(p,x) }
-
             case Pawn =>
                 var pos: List[Position] = p.basicMoveOptions filter { pos => isFree(pos) }
 
                 // can capture in diagonal
                 val y = p.color match { case White => p.pos.y+1 case Black => p.pos.y-1 } 
                 pos :::= (for(x <- List(p.pos.x-1, p.pos.x+1) if (Position.isValid(x,y) && isForeign(p, Position(x,y)))) yield Position(x,y));
-
-                // en passant
-                if (p.pos.y == 5 && p.color == White || p.pos.y == 4 && p.color == Black) {
-                    println("Pawn is on the right rank!")
-                    // check right
-                    if (Position.isValid(p.pos.x+1, p.pos.y) && isForeign(p, p.pos.offset(+1,0))) {
-                        println("Right pos is occupied!")
-                        //Check that the right slot is 1) a pawn, 2) the last move was him moving 2 slots
-                        if (lastMove.piece.typ == Pawn && (List(2,7) contains lastMove.piece.pos.y)) {
-                            pos = Position(p.pos.x+1, y) :: pos
-                        }
-                    }
-
-                    // check left
-                    if (Position.isValid(p.pos.x-1, p.pos.y) && isForeign(p, p.pos.offset(-1,0))) {
-                        println("Left pos is occupied!")
-                        //Check that the left slot is 1) a pawn, 2) the last move was him moving 2 slots
-                        if (lastMove.piece.typ == Pawn && (List(2,7) contains lastMove.piece.pos.y)) {
-                            pos = Position(p.pos.x-1, y) :: pos
-                        }
-
-                    }
-                }
                 pos
-            case King =>
-                p.basicMoveOptions filter { pos => (isForeign(p, pos) || isFree(pos)) }
-                // TODO: castling
-
-            case Rook =>
-                p.basicMoveOptions filter { pos => (isForeign(p, pos) || isFree(pos)) && isFreePath(p,pos) }
-                // TODO: castling
-
             case _ => p.basicMoveOptions filter { pos => (isForeign(p, pos) || isFree(pos)) && isFreePath(p,pos) }
         }
 
         Set[Position]()++positions
     }
 
-    def performMove(p: Piece, posTo: Position): Board = {
-            moveOrCapture(p, posTo)
-            // Detect en passant
 
-            // Detect castling
+    def movesOptionsFor(p: Piece): Set[Position] = {
+        p.typ match {
+            case Pawn =>
+                var pos = basicMovesOptionsFor(p)
+                // en passant
+                if (p.pos.y == 5 && p.color == White || p.pos.y == 4 && p.color == Black) {
+                    val y = if (p.color == White) p.pos.y+1 else p.pos.y-1
+                    // check right
+                    if (Position.isValid(p.pos.x+1, p.pos.y) && isForeign(p, p.pos.offset(+1,0))) {
+                        //Check that the right slot is 1) a pawn, 2) the last move was him moving 2 slots
+                        if (lastMove.piece.typ == Pawn && (List(2,7) contains lastMove.piece.pos.y)) {
+                            pos += Position(p.pos.x+1, y)
+                        }
+                    }
+
+                    // check left
+                    if (Position.isValid(p.pos.x-1, p.pos.y) && isForeign(p, p.pos.offset(-1,0))) {
+                        //Check that the left slot is 1) a pawn, 2) the last move was him moving 2 slots
+                        if (lastMove.piece.typ == Pawn && (List(2,7) contains lastMove.piece.pos.y)) {
+                            pos += Position(p.pos.x-1, y)
+                        }
+
+                    }
+                }
+                pos
+            case King =>
+                var positions = basicMovesOptionsFor(p)
+                if (!p.hasMoved) {
+                    for (rookPosX <- List(1,8)) {
+                        val rookPos = Position(rookPosX, p.pos.y)
+                        slots get rookPos match {
+                            case Some(op) if !op.hasMoved =>
+                                val d = if (rookPosX == 1) -1 else 1;
+                                val path = List(p.pos.offset(d,0), p.pos.offset(2*d,0))
+
+                                if (isSafe(p.pos) && path.forall {p => isSafe(p) && isFree(p)}) {
+                                    positions += p.pos.offset(2*d, 0)
+                                }
+                            case _ =>
+                        }
+                    }
+                }
+
+                positions
+
+            case _ => basicMovesOptionsFor(p)
+        }
+    }
+
+    def performMove(p: Piece, posTo: Position): Board = {
+            if (p.typ == Pawn && posTo.x != p.pos.x && isFree(posTo)) {
+                // Detect en passant
+                slots get Position(posTo.x, p.pos.y) match {
+                    case Some(op) =>
+                        capturePiece(op).moveOrCapture(p, posTo)
+                    case None =>
+                        throw new BoardException("Invalid 'En passant': The slot targetted is empty")
+                }
+            }  else if (p.typ == King && Math.abs(posTo.x-p.pos.x) == 2) {
+                // Detect castling
+                val rookFromX = if (posTo.x > p.pos.x) 8 else 1
+                val rookToX   = if (posTo.x > p.pos.x) 6 else 4
+                slots get Position(rookFromX, p.pos.y) match {
+                    case Some(op) =>
+                        moveOrCapture(p, posTo).moveOrCapture(op, Position(rookToX, p.pos.y))
+                    case None =>
+                        throw new BoardException("Invalid castling! No rook to move")
+                }
+            } else {
+                moveOrCapture(p, posTo)
+            }
+
+    }
+
+    def isSafe(target: Position) = {
+        !(slots.values filter { _.color != turn } exists { basicMovesOptionsFor(_) contains target })
     }
 
     /* */
@@ -147,9 +187,7 @@ case class Board(val turn: ChessTeam, val slots: Map[Position, Piece], val captu
 
         val target = newBoard.king(turn).pos
 
-        val inDanger = newBoard.slots.values filter { _.color != turn } exists { newBoard.movesOptionsFor(_) contains target }
-
-        !inDanger
+        newBoard.isSafe(target)
     }
 
 }
