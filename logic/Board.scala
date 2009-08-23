@@ -51,31 +51,12 @@ case class Board(val turn: ChessTeam, val slots: Map[Position, Piece], val captu
 
 
 
-    /* returns the positions in the path between two slots */
-    def path(from: Position, to: Position) = {
-        def dx = if (from.x > to.x) -1 else if (from.x < to.x) 1 else 0;
-        def dy = if (from.y > to.y) -1 else if (from.y < to.y) 1 else 0;
-
-        var positions: List[Position] = Nil
-        var nx = from.x+dx
-        var ny = from.y+dy
-
-        while ((dx*nx < dx*to.x || dy*ny < dy*to.y) && Position.isValid(nx, ny)) {
-            positions ::= Position(nx,ny)
-            nx += dx
-            ny += dy
-
-        }
-
-        positions
-    }
-
 
     /* returns if a position is free */
     def isFree(pos: Position) = !(slots contains pos)
 
     /* checks if a path to the position is free */
-    def isFreePath(p: Piece, pos: Position) = path(p.pos, pos) forall isFree
+    def isFreePath(p: Piece, pos: Position) = p.pos.pathTo(pos) forall isFree
 
     /* checks if the position is occupied by the opponent */
     def isForeign(p: Piece, pos: Position) = slots get pos match {

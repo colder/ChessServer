@@ -72,14 +72,14 @@ class CLIClient {
                 cmd match {
                     case Move(from, to) =>
                         board = board.movePiece(from,to)
-                        draw(from :: to :: board.path(from, to), Console.BOLD+Console.YELLOW_B)
+                        draw(from :: to :: from.pathTo(to), Console.BOLD+Console.YELLOW_B)
 
                     case PerformMove(from, to) =>
                         board.slots get from match {
                             case Some(p) =>
                                 if (board.movesOptionsCheckKingSafety(p) contains to) {
                                     board = board.performMove(p,to)
-                                    draw(from :: to :: board.path(from, to), Console.BOLD+Console.YELLOW_B)
+                                    draw(from :: to :: from.pathTo(to), Console.BOLD+Console.YELLOW_B)
                                 } else {
                                     draw(board.movesOptionsCheckKingSafety(p), Console.WHITE_B)
                                     println("< Error: Can't move there!")

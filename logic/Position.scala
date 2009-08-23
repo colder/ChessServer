@@ -23,6 +23,7 @@ case class Position(val x: Int, val y: Int) {
 
     def offset(ox: Int, oy: Int) = Position(x+ox, y+oy)
 
+    def pathTo(to: Position) = Position.path(this, to)
 
     if (!Position.isValid(x,y)) throw new IllegalPositionException(x, y)
 }
@@ -30,6 +31,26 @@ case class Position(val x: Int, val y: Int) {
 object Position {
     def isValid(x: Int, y: Int) = x > 0 && x < 9 && y > 0 && y < 9
     def isValidOffset(p: Position, ox: Int, oy: Int) = isValid(p.x+ox, p.y+oy)
+
+    /* returns the positions in the path between two slots */
+    def path(from: Position, to: Position) = {
+        def dx = if (from.x > to.x) -1 else if (from.x < to.x) 1 else 0;
+        def dy = if (from.y > to.y) -1 else if (from.y < to.y) 1 else 0;
+
+        var positions: List[Position] = Nil
+        var nx = from.x+dx
+        var ny = from.y+dy
+
+        while ((dx*nx < dx*to.x || dy*ny < dy*to.y) && Position.isValid(nx, ny)) {
+            positions ::= Position(nx,ny)
+            nx += dx
+            ny += dy
+
+        }
+
+        positions
+    }
+
 }
 
 
