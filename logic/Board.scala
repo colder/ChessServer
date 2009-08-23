@@ -103,9 +103,9 @@ case class Board(val turn: ChessTeam, val slots: Map[Position, Piece], val captu
 
 
     def movesOptionsFor(p: Piece): Set[Position] = {
+        var positions = basicMovesOptionsFor(p)
         p.typ match {
             case Pawn =>
-                var pos = basicMovesOptionsFor(p)
                 // en passant
                 if (p.pos.y == 5 && p.color == White || p.pos.y == 4 && p.color == Black) {
                     val y = if (p.color == White) p.pos.y+1 else p.pos.y-1
@@ -113,7 +113,7 @@ case class Board(val turn: ChessTeam, val slots: Map[Position, Piece], val captu
                     if (Position.isValid(p.pos.x+1, p.pos.y) && isForeign(p, p.pos.offset(+1,0))) {
                         //Check that the right slot is 1) a pawn, 2) the last move was him moving 2 slots
                         if (lastMove.piece.typ == Pawn && (List(2,7) contains lastMove.piece.pos.y)) {
-                            pos += Position(p.pos.x+1, y)
+                            positions += Position(p.pos.x+1, y)
                         }
                     }
 
@@ -121,14 +121,12 @@ case class Board(val turn: ChessTeam, val slots: Map[Position, Piece], val captu
                     if (Position.isValid(p.pos.x-1, p.pos.y) && isForeign(p, p.pos.offset(-1,0))) {
                         //Check that the left slot is 1) a pawn, 2) the last move was him moving 2 slots
                         if (lastMove.piece.typ == Pawn && (List(2,7) contains lastMove.piece.pos.y)) {
-                            pos += Position(p.pos.x-1, y)
+                            positions += Position(p.pos.x-1, y)
                         }
 
                     }
                 }
-                pos
             case King =>
-                var positions = basicMovesOptionsFor(p)
                 if (!p.hasMoved) {
                     for (rookPosX <- List(1,8)) {
                         val rookPos = Position(rookPosX, p.pos.y)
@@ -145,10 +143,10 @@ case class Board(val turn: ChessTeam, val slots: Map[Position, Piece], val captu
                     }
                 }
 
-                positions
-
-            case _ => basicMovesOptionsFor(p)
+            case _ =>
         }
+
+        positions
     }
 
     def performMove(p: Piece, posTo: Position): Board = {
