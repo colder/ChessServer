@@ -7,7 +7,7 @@ class CLIClient {
 
     type Highlights = Map[Position, String]
 
-    var board = Board.init
+    var game = new Game()
 
     def draw: Unit = draw(Map[Position, String]());
 
@@ -23,8 +23,8 @@ class CLIClient {
         def line = println("     +-----+-----+-----+-----+-----+-----+-----+------")
 
         println
-        println("Turn: "+board.turn)
-        println("Last Move: "+board.lastMove)
+        println("Turn: "+game.turn)
+        println("Last Move: "+game.board.lastMove)
         println
         println
         println("     "+((0 to 7) map { x: Int => "   "+('A'+x).toChar+"  " }).mkString)
@@ -41,7 +41,7 @@ class CLIClient {
                 val highlight = highlights get Position(x,y) match { case Some(s) => s case None => "" };
 
                 l1 = l1 + "|"+highlight+"     "+Console.RESET
-                l2 = l2 + (board.slots.get(Position(x,y)) match {
+                l2 = l2 + (game.board.slots.get(Position(x,y)) match {
                     case Some(p) =>
                         val color = if (p.color == White) Console.GREEN else Console.RED;
                     "|"+highlight+"  "+color+p.typ.ab+"  "+Console.RESET;
@@ -71,25 +71,12 @@ class CLIClient {
 
                 cmd match {
                     case Move(from, to) =>
-                        board = board.movePiece(from,to)
+                        game = game.move(from, to);
                         draw(from :: to :: from.pathTo(to), Console.BOLD+Console.YELLOW_B)
 
-                    case PerformMove(from, to) =>
-                        board.slots get from match {
-                            case Some(p) =>
-                                if (board.movesOptionsCheckKingSafety(p) contains to) {
-                                    board = board.performMove(p,to)
-                                    draw(from :: to :: from.pathTo(to), Console.BOLD+Console.YELLOW_B)
-                                } else {
-                                    draw(board.movesOptionsCheckKingSafety(p), Console.WHITE_B)
-                                    println("< Error: Can't move there!")
-                                }
-                            case None => println("< Error: Can't find any piece at pos "+from);
-                        }
-
                     case Analyze(pos) =>
-                        board.slots get pos match {
-                            case Some(p) => draw(board.movesOptionsCheckKingSafety(p), Console.WHITE_B);
+                        game.board.slots get pos match {
+                            case Some(p) => draw(game.board.movesOptionsCheckKingSafety(p), Console.WHITE_B);
                             case None => println("< Error: Can't find any piece at pos "+pos);
                         }
                         
@@ -100,7 +87,7 @@ class CLIClient {
                 case _: java.io.EOFException =>
                     continue = false
                 case e =>
-                    println("< Error: "+e.getMessage)
+                    println("< Error: "+e)
                     e.printStackTrace
             }
         }
@@ -108,7 +95,6 @@ class CLIClient {
 
     abstract class Cmd
     case class Move(from: Position, to: Position) extends Cmd
-    case class PerformMove(from: Position, to: Position) extends Cmd
     case class Analyze(pos: Position) extends Cmd
     case class Unknown(str: String) extends Cmd
     object Quit extends Cmd
@@ -117,7 +103,6 @@ class CLIClient {
         try {
             str.split(" +").toList match {
                 case "m" :: pf :: pt :: Nil => Move(new Position(pf), new Position(pt))
-                case "pm" :: pf :: pt :: Nil => PerformMove(new Position(pf), new Position(pt))
                 case "a" :: p :: Nil => Analyze(new Position(p))
                 case "q" :: Nil => Quit
                 case "quit" :: Nil => Quit

@@ -5,7 +5,7 @@ import scala.collection.immutable.{HashMap,HashSet,Set};
 
 
 /* immutable */
-case class Board(val turn: ChessTeam, val slots: Map[Position, Piece], val capturedPieces: List[Piece], val lastMove: Move) {
+case class Board(val slots: Map[Position, Piece], val capturedPieces: List[Piece], val lastMove: Move) {
     type Slots = Map[Position, Piece]
 
     val kingBlack = slots.values find { p => p.typ == King && p.color == Black } match {
@@ -20,37 +20,34 @@ case class Board(val turn: ChessTeam, val slots: Map[Position, Piece], val captu
 
     def king(color: ChessTeam) = if (color == White) kingWhite else kingBlack
 
-    def movePiece(posFrom: Position, posTo: Position): Board = slots get posFrom match {
+    private def movePiece(posFrom: Position, posTo: Position): Board = slots get posFrom match {
         case Some(p) => movePiece(p, posTo)
         case None => throw new BoardException("Slot "+posFrom+" contains no piece!")
 
     }
-    def movePiece(pi: Piece, posTo: Position): Board = slots get posTo match {
+    private def movePiece(pi: Piece, posTo: Position): Board = slots get posTo match {
         case Some(op) => throw new BoardException("Slot "+posTo.algNotation+" is already occupied by "+op)
         case None => slots get pi.pos match {
             case Some(op) if op == pi =>
-                Board(turn, (slots - pi.pos)(posTo) = pi.move(posTo), capturedPieces, Move(pi, posTo))
+                Board((slots - pi.pos)(posTo) = pi.move(posTo), capturedPieces, Move(pi, posTo))
             case _ => throw new BoardException("Warning! Board is out of sync: Slot "+pi.pos.algNotation+" is not occupied by "+pi)
         }
     }
 
-    def nextTurn: Board = Board(if (turn == White) Black else White, slots, capturedPieces, lastMove)
+    private def capturePiece(pt: Piece): Board = Board(removePiece(slots, pt), pt :: capturedPieces, lastMove)
 
-    def capturePiece(pt: Piece): Board = Board(turn, removePiece(slots, pt), pt :: capturedPieces, lastMove)
-
-    def removePiece(slots: Slots, pt: Piece): Slots = slots get pt.pos match {
+    private def removePiece(slots: Slots, pt: Piece): Slots = slots get pt.pos match {
         case Some(op) if (op == pt) =>
             slots - pt.pos
         case _ => throw new BoardException("Warning! Board is out of sync: Slot "+pt.pos.algNotation+" is not occupied by "+pt)
     }
 
-    def moveOrCapture(p: Piece, pos: Position): Board = slots get pos match {
+    private def moveOrCapture(p: Piece, pos: Position): Board = slots get pos match {
         case Some(op) => capturePiece(op).movePiece(p, pos)
         case None => movePiece(p, pos)
     }
 
-
-
+    def pieceAt(pos: Position): Option[Piece] = slots get pos;
 
     /* returns if a position is free */
     def isFree(pos: Position) = !(slots contains pos)
@@ -116,7 +113,7 @@ case class Board(val turn: ChessTeam, val slots: Map[Position, Piece], val captu
                                 val d = if (rookPosX == 1) -1 else 1;
                                 val path = List(p.pos.offset(d,0), p.pos.offset(2*d,0))
 
-                                if (isSafe(p.pos) && path.forall {p => isSafe(p) && isFree(p)}) {
+                                if (isSafe(p.color, p.pos) && path.forall {pos => isSafe(p.color, pos) && isFree(pos)}) {
                                     positions += p.pos.offset(2*d, 0)
                                 }
                             case _ =>
@@ -130,45 +127,66 @@ case class Board(val turn: ChessTeam, val slots: Map[Position, Piece], val captu
         positions
     }
 
-    def performMove(p: Piece, posTo: Position): Board = {
-            if (p.typ == Pawn && posTo.x != p.pos.x && isFree(posTo)) {
-                // Detect en passant
-                slots get Position(posTo.x, p.pos.y) match {
-                    case Some(op) =>
-                        capturePiece(op).moveOrCapture(p, posTo)
-                    case None =>
-                        throw new BoardException("Invalid 'En passant': The slot targetted is empty")
-                }
-            }  else if (p.typ == King && Math.abs(posTo.x-p.pos.x) == 2) {
-                // Detect castling
-                val rookFromX = if (posTo.x > p.pos.x) 8 else 1
-                val rookToX   = if (posTo.x > p.pos.x) 6 else 4
-                slots get Position(rookFromX, p.pos.y) match {
-                    case Some(op) =>
-                        moveOrCapture(p, posTo).moveOrCapture(op, Position(rookToX, p.pos.y))
-                    case None =>
-                        throw new BoardException("Invalid castling! No rook to move")
-                }
-            } else {
-                moveOrCapture(p, posTo)
-            }
-
+    def isSafeFor(piece: Piece): Boolean = isSafe(piece.color, piece.pos);
+    
+    def isSafe(targetColor: ChessTeam, target: Position): Boolean = {
+        !(slots.values filter { _.color != targetColor } exists { basicMovesOptionsFor(_) contains target })
     }
 
-    def isSafe(target: Position) = {
-        !(slots.values filter { _.color != turn } exists { basicMovesOptionsFor(_) contains target })
-    }
-
-    /* */
-    def movesOptionsCheckKingSafety(pi: Piece): Set[Position] = movesOptionsFor(pi) filter { pos =>
+    def movesOptionsCheckKingSafety(piece: Piece): Set[Position] = movesOptionsFor(piece) filter { pos =>
         /* Only select moves that do not endanger the King */
-        val newBoard = performMove(pi, pos)
+        val newBoard = performMoveUnchecked(piece, pos).board
 
-        val target = newBoard.king(turn).pos
-
-        newBoard.isSafe(target)
+        newBoard.isSafeFor(newBoard.king(piece.color))
     }
 
+    /* Complex perform move operation */
+    def performMove(posFrom: Position, posTo: Position): MoveResult = {
+        slots get posFrom match {
+            case Some(p) =>
+                // check validity of the target
+                if (!(movesOptionsCheckKingSafety(p) contains posTo)) {
+                    throw new BoardException("You can't move there!")
+                }
+
+                performMoveUnchecked(p, posTo);
+            case None =>
+                throw new BoardException("Invalid move: no piece found at "+posFrom);
+        }
+    }
+
+    private def performMoveUnchecked(piece: Piece, posTo: Position): MoveResult = {
+        // Special moves that requires two actions
+        if (piece.typ == Pawn && posTo.x != piece.pos.x && isFree(posTo)) {
+            // En passant
+            slots get Position(posTo.x, piece.pos.y) match {
+                case Some(op) =>
+                    MoveResult(capturePiece(op).moveOrCapture(piece, posTo), true, false);
+                case None =>
+                    throw new BoardException("Invalid 'En passant': The slot targetted is empty")
+            }
+        }  else if (piece.typ == King && Math.abs(posTo.x-piece.pos.x) == 2) {
+            // Castling
+            val rookFromX = if (posTo.x > piece.pos.x) 8 else 1
+            val rookToX   = if (posTo.x > piece.pos.x) 6 else 4
+            slots get Position(rookFromX, piece.pos.y) match {
+                case Some(op) =>
+                    MoveResult(moveOrCapture(piece, posTo).moveOrCapture(op, Position(rookToX, piece.pos.y)), true, true);
+                case None =>
+                    throw new BoardException("Invalid castling! No rook to move")
+            }
+        } else {
+            // Normal move/capture
+            val newboard = moveOrCapture(piece, posTo)
+
+            slots get posTo match {
+                case Some(op) =>
+                    MoveResult(newboard, true, false)
+                case None =>
+                    MoveResult(newboard, piece.typ == Pawn, true)
+            }
+        }
+    }
 }
 
 object Board {
@@ -216,9 +234,11 @@ object Board {
         slots = placePiece(slots, Black, King, Position(5, 8))
 
 
-        Board(White, slots, Nil, Move(Piece(White, King, Position(5,8), 0), Position(5,8)))
+        Board(slots, Nil, Move(Piece(White, King, Position(5,8), 0), Position(5,8)))
     }
 
 }
 
-class BoardException(m: String) extends RuntimeException(m);
+class BoardException(msg: String) extends GameException(msg);
+
+case class MoveResult(board: Board, reinitBoards: Boolean, incMovesWC: Boolean)
