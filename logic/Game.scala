@@ -26,7 +26,7 @@ case class Game(board: Board, turn: ChessTeam, boards: Map[Board, Int], movesWit
     }
 
     /* Interface to the clients */
-    def move(posFrom: Position, posTo: Position) = {
+    def move(posFrom: Position, posTo: Position): Game = {
         // Check that the turn is valid
         board pieceAt(posFrom) match {
             case Some(p) if p.color != turn =>
@@ -38,8 +38,15 @@ case class Game(board: Board, turn: ChessTeam, boards: Map[Board, Int], movesWit
 
     }
 
-    def moveAndPromote(from: Position, to: Position, promotion: PieceType) = {
+    def moveAndPromote(from: Position, to: Position, promotion: PieceType): Game = {
+        val newGame = move(from, to)
 
+        newGame.board.pieceAt(to) match {
+            case Some(pi) =>
+                Game(newGame.board.promote(pi, promotion), turn, boards, movesWithoutCapture).reinitBoards
+            case None =>
+                throw GameException("Wooups: no piece available for promotion, strange!")
+        }
     }
 
     def isDrawCondition = {

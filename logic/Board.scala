@@ -22,16 +22,16 @@ case class Board(val slots: Map[Position, Piece], val capturedPieces: List[Piece
     def isFree(pos: Position) = !(slots contains pos)
 
     /* Checks if a path to the position is free */
-    def isFreePath(p: Piece, pos: Position) = p.pos.pathTo(pos) forall isFree
+    def isFreePath(pi: Piece, pos: Position) = pi.pos.pathTo(pos) forall isFree
 
     /* Checks if the position is occupied by the opponent */
-    def isForeign(p: Piece, pos: Position) = slots get pos match {
-        case Some(po) => po.color != p.color
+    def isForeign(pi: Piece, pos: Position) = slots get pos match {
+        case Some(po) => po.color != pi.color
         case _ => false
     }
 
     /* Checks if a piece is safe where it is */
-    def isSafeFor(piece: Piece): Boolean = isSafe(piece.color, piece.pos);
+    def isSafeFor(pi: Piece): Boolean = isSafe(pi.color, pi.pos);
     
     /* Checks if a position is safe */
     def isSafe(targetColor: ChessTeam, target: Position): Boolean = {
@@ -40,23 +40,23 @@ case class Board(val slots: Map[Position, Piece], val capturedPieces: List[Piece
 
     /* Returns the set of possible moves, excluding the ones
      * that endanger the King */
-    def movesOptionsCheckKingSafety(piece: Piece): Set[Position] = movesOptionsFor(piece) filter { pos =>
-        val newBoard = performMoveUnchecked(piece, pos).board
+    def movesOptionsCheckKingSafety(pi: Piece): Set[Position] = movesOptionsFor(pi) filter { pos =>
+        val newBoard = performMoveUnchecked(pi, pos).board
 
-        newBoard.isSafeFor(newBoard.king(piece.color))
+        newBoard.isSafeFor(newBoard.king(pi.color))
     }
 
     /* Move the pieces around, which might require multiple actions
      * i.e. castling or en passant */
     def performMove(posFrom: Position, posTo: Position): MoveResult = {
         slots get posFrom match {
-            case Some(p) =>
+            case Some(pi) =>
                 // check validity of the target
-                if (!(movesOptionsCheckKingSafety(p) contains posTo)) {
+                if (!(movesOptionsCheckKingSafety(pi) contains posTo)) {
                     throw new BoardException("You can't move there!")
                 }
 
-                performMoveUnchecked(p, posTo);
+                performMoveUnchecked(pi, posTo);
             case None =>
                 throw new BoardException("Invalid move: no piece found at "+posFrom);
         }
@@ -65,20 +65,20 @@ case class Board(val slots: Map[Position, Piece], val capturedPieces: List[Piece
 
     /* Returns the positions at which the piece is allowed to move in the
      * board, including castling */
-    def movesOptionsFor(p: Piece): Set[Position] = {
-        var positions = basicMovesOptionsFor(p)
-        p.typ match {
+    def movesOptionsFor(pi: Piece): Set[Position] = {
+        var positions = basicMovesOptionsFor(pi)
+        pi.typ match {
             case King =>
-                if (!p.hasMoved) {
+                if (!pi.hasMoved) {
                     for (rookPosX <- List(1,8)) {
-                        val rookPos = Position(rookPosX, p.pos.y)
-                        slots get rookPos match {
-                            case Some(op) if !op.hasMoved =>
+                        val rookPos = Position(rookPosX, pi.pos.y)
+                        pieceAt(rookPos) match {
+                            case Some(po) if !po.hasMoved =>
                                 val d = if (rookPosX == 1) -1 else 1;
-                                val path = List(p.pos.offset(d,0), p.pos.offset(2*d,0))
+                                val path = List(pi.pos.offset(d,0), pi.pos.offset(2*d,0))
 
-                                if (isSafe(p.color, p.pos) && path.forall {pos => isSafe(p.color, pos) && isFree(pos)}) {
-                                    positions += p.pos.offset(2*d, 0)
+                                if (isSafe(pi.color, pi.pos) && path.forall {pos => isSafe(pi.color, pos) && isFree(pos)}) {
+                                    positions += pi.pos.offset(2*d, 0)
                                 }
                             case _ =>
                         }
@@ -91,26 +91,44 @@ case class Board(val slots: Map[Position, Piece], val capturedPieces: List[Piece
         positions
     }
 
+    /* Returns the board with the pawn promoted */
+    def promote(pi: Piece, typeTo: PieceType): Board = {
+        if (pi.typ != Pawn) {
+            throw new BoardException("You cannot promote a piece that is not a pawn");
+        }
+
+        if (typeTo != Queen && typeTo != Rook && typeTo != Bishop && typeTo != Knight) {
+            throw new BoardException("Invalid promotion. You can't promote to that kind of piece.");
+        }
+
+        if (pi.color == White && pi.pos.y != 8 || pi.color == Black && pi.pos.y != 1) {
+            throw new BoardException("The piece is not in a position at which it can be promoted!");
+        }
+
+        val newSlots = Board.placePiece(removePiece(slots, pi), pi.color, typeTo, pi.pos);
+        Board(newSlots, capturedPieces, lastMove)
+    }
+
     /**
      * Private Board helpers
      */
 
-    private val kingBlack = slots.values find { p => p.typ == King && p.color == Black } match {
-        case Some(op) => op
+    private val kingBlack = slots.values find { pi => pi.typ == King && pi.color == Black } match {
+        case Some(pi) => pi
         case None => throw new BoardException("Can't find any black kings in the pieces!")
     }
 
-    private val kingWhite = slots.values find { p => p.typ == King && p.color == White } match {
-        case Some(op) => op
+    private val kingWhite = slots.values find { pi => pi.typ == King && pi.color == White } match {
+        case Some(pi) => pi
         case None => throw new BoardException("Can't find any white kings in the pieces!")
     }
 
-    private def movePiece(posFrom: Position, posTo: Position): Board = slots get posFrom match {
-        case Some(p) => movePiece(p, posTo)
+    private def movePiece(posFrom: Position, posTo: Position): Board = pieceAt(posFrom) match {
+        case Some(pi) => movePiece(pi, posTo)
         case None => throw new BoardException("Slot "+posFrom+" contains no piece!")
 
     }
-    private def movePiece(pi: Piece, posTo: Position): Board = slots get posTo match {
+    private def movePiece(pi: Piece, posTo: Position): Board = pieceAt(posTo) match {
         case Some(op) => throw new BoardException("Slot "+posTo.algNotation+" is already occupied by "+op)
         case None => slots get pi.pos match {
             case Some(op) if op == pi =>
@@ -119,7 +137,7 @@ case class Board(val slots: Map[Position, Piece], val capturedPieces: List[Piece
         }
     }
 
-    private def capturePiece(pt: Piece): Board = Board(removePiece(slots, pt), pt :: capturedPieces, lastMove)
+    private def capturePiece(pi: Piece): Board = Board(removePiece(slots, pi), pi :: capturedPieces, lastMove)
 
     private def removePiece(slots: Slots, pt: Piece): Slots = slots get pt.pos match {
         case Some(op) if (op == pt) =>
@@ -127,46 +145,46 @@ case class Board(val slots: Map[Position, Piece], val capturedPieces: List[Piece
         case _ => throw new BoardException("Warning! Board is out of sync: Slot "+pt.pos.algNotation+" is not occupied by "+pt)
     }
 
-    private def moveOrCapture(p: Piece, pos: Position): Board = slots get pos match {
-        case Some(op) => capturePiece(op).movePiece(p, pos)
-        case None => movePiece(p, pos)
+    private def moveOrCapture(pi: Piece, pos: Position): Board = slots get pos match {
+        case Some(op) => capturePiece(op).movePiece(pi, pos)
+        case None => movePiece(pi, pos)
     }
 
 
     /* calculates the positions at which the piece is allowed to move in the board */
-    private def basicMovesOptionsFor(p: Piece): Set[Position] = {
-        val positions = p.typ match {
+    private def basicMovesOptionsFor(pi: Piece): Set[Position] = {
+        val positions = pi.typ match {
             case Knight =>
-                p.basicMoveOptions filter { x => isFree(x) || isForeign(p,x) }
+                pi.basicMoveOptions filter { x => isFree(x) || isForeign(pi,x) }
             case Pawn =>
-                var pos: List[Position] = p.basicMoveOptions filter { pos => isFree(pos) }
+                var pos: List[Position] = pi.basicMoveOptions filter { pos => isFree(pos) }
 
                 // can capture in diagonal
-                val y = p.color match { case White => p.pos.y+1 case Black => p.pos.y-1 } 
-                pos :::= (for(x <- List(p.pos.x-1, p.pos.x+1) if (Position.isValid(x,y) && isForeign(p, Position(x,y)))) yield Position(x,y));
+                val y = pi.color match { case White => pi.pos.y+1 case Black => pi.pos.y-1 } 
+                pos :::= (for(x <- List(pi.pos.x-1, pi.pos.x+1) if (Position.isValid(x,y) && isForeign(pi, Position(x,y)))) yield Position(x,y));
                 // en passant
-                if (p.pos.y == 5 && p.color == White || p.pos.y == 4 && p.color == Black) {
-                    val y = if (p.color == White) p.pos.y+1 else p.pos.y-1
+                if (pi.pos.y == 5 && pi.color == White || pi.pos.y == 4 && pi.color == Black) {
+                    val y = if (pi.color == White) pi.pos.y+1 else pi.pos.y-1
                     // check right
-                    if (Position.isValid(p.pos.x+1, p.pos.y) && isForeign(p, p.pos.offset(+1,0))) {
+                    if (Position.isValid(pi.pos.x+1, pi.pos.y) && isForeign(pi, pi.pos.offset(+1,0))) {
                         //Check that the right slot is 1) a pawn, 2) the last move was him moving 2 slots
                         if (lastMove.piece.typ == Pawn && (List(2,7) contains lastMove.piece.pos.y)) {
-                            pos = Position(p.pos.x+1, y) :: pos
+                            pos = Position(pi.pos.x+1, y) :: pos
                         }
                     }
 
                     // check left
-                    if (Position.isValid(p.pos.x-1, p.pos.y) && isForeign(p, p.pos.offset(-1,0))) {
+                    if (Position.isValid(pi.pos.x-1, pi.pos.y) && isForeign(pi, pi.pos.offset(-1,0))) {
                         //Check that the left slot is 1) a pawn, 2) the last move was him moving 2 slots
                         if (lastMove.piece.typ == Pawn && (List(2,7) contains lastMove.piece.pos.y)) {
-                            pos = Position(p.pos.x-1, y) :: pos
+                            pos = Position(pi.pos.x-1, y) :: pos
                         }
 
                     }
                 }
 
                 pos
-            case _ => p.basicMoveOptions filter { pos => (isForeign(p, pos) || isFree(pos)) && isFreePath(p,pos) }
+            case _ => pi.basicMoveOptions filter { pos => (isForeign(pi, pos) || isFree(pos)) && isFreePath(pi,pos) }
         }
 
         Set[Position]()++positions
@@ -257,6 +275,6 @@ object Board {
 
 }
 
-class BoardException(msg: String) extends GameException(msg);
+case class BoardException(override val msg: String) extends GameException(msg);
 
 case class MoveResult(board: Board, reinitBoards: Boolean, incMovesWC: Boolean)
