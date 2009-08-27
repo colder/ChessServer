@@ -70,6 +70,9 @@ class CLIClient {
                 val cmd = parse(Console.readLine)
 
                 cmd match {
+                    case MovePromote(from, to, typeTo) =>
+                        game = game.moveAndPromote(from, to, typeTo);
+                        draw(from :: to :: from.pathTo(to), Console.BOLD+Console.YELLOW_B)
                     case Move(from, to) =>
                         game = game.move(from, to);
                         draw(from :: to :: from.pathTo(to), Console.BOLD+Console.YELLOW_B)
@@ -95,6 +98,7 @@ class CLIClient {
 
     abstract class Cmd
     case class Move(from: Position, to: Position) extends Cmd
+    case class MovePromote(from: Position, to: Position, typ: PieceType) extends Cmd
     case class Analyze(pos: Position) extends Cmd
     case class Unknown(str: String) extends Cmd
     object Quit extends Cmd
@@ -102,7 +106,8 @@ class CLIClient {
     def parse(str: String): Cmd = {
         try {
             str.split(" +").toList match {
-                case "m" :: pf :: pt :: Nil => Move(new Position(pf), new Position(pt))
+                case "m"  :: pf :: pt :: Nil => Move(new Position(pf), new Position(pt))
+                case "mp" :: pf :: pt :: typ :: Nil => MovePromote(new Position(pf), new Position(pt), parseType(typ))
                 case "a" :: p :: Nil => Analyze(new Position(p))
                 case "q" :: Nil => Quit
                 case "quit" :: Nil => Quit
@@ -112,5 +117,14 @@ class CLIClient {
         } catch {
             case x => Unknown(str+"("+x.getMessage+")")
         }
+    }
+
+    def parseType(str: String): PieceType = str.toUpperCase match {
+        case "Q" => Queen
+        case "R" => Rook
+        case "N" => Knight
+        case "B" => Bishop
+        case _ =>
+            throw new RuntimeException("Invalid promotion type");
     }
 }

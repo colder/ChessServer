@@ -9,7 +9,7 @@ case class Game(board: Board, turn: ChessTeam, boards: Map[Board, Int], movesWit
 
     def nextTurn: Game = Game(board, if (turn == White) Black else White, boards, movesWithoutCapture);
 
-    def reinitBoards: Game = Game(board, turn, new HashMap[Board, Int](), movesWithoutCapture);
+    def reinitBoards: Game = Game(board, turn, HashMap[Board, Int](), movesWithoutCapture);
 
     def storeBoard: Game = {
         boards get board match {
@@ -28,9 +28,13 @@ case class Game(board: Board, turn: ChessTeam, boards: Map[Board, Int], movesWit
     /* Interface to the clients */
     def move(posFrom: Position, posTo: Position): Game = {
         // Check that the turn is valid
-        board pieceAt(posFrom) match {
-            case Some(p) if p.color != turn =>
+        board pieceAt posFrom match {
+            case Some(Piece(color, _, _, _)) if color != turn =>
                 throw GameException("Wait your turn!");
+            case Some(Piece(White, Pawn, Position(_, 7), _)) =>
+                throw GameException("You can't move without promoting your pawn!");
+            case Some(Piece(Black, Pawn, Position(_, 2), _)) =>
+                throw GameException("You can't move without promoting your pawn!");
             case _ =>
                 val moveResult = board.performMove(posFrom, posTo);
                 fromMoveResult(moveResult).nextTurn
@@ -38,14 +42,22 @@ case class Game(board: Board, turn: ChessTeam, boards: Map[Board, Int], movesWit
 
     }
 
-    def moveAndPromote(from: Position, to: Position, promotion: PieceType): Game = {
-        val newGame = move(from, to)
+    def moveAndPromote(posFrom: Position, posTo: Position, promotion: PieceType): Game = {
 
-        newGame.board.pieceAt(to) match {
-            case Some(pi) =>
-                Game(newGame.board.promote(pi, promotion), turn, boards, movesWithoutCapture).reinitBoards
-            case None =>
-                throw GameException("Wooups: no piece available for promotion, strange!")
+        board pieceAt posFrom match {
+            case Some(Piece(color, _, _, _)) if color != turn =>
+                throw GameException("Wait your turn!");
+            case Some(Piece(White, Pawn, Position(_, 7), _)) | Some(Piece(Black, Pawn, Position(_, 2), _)) =>
+                val moveResult = board.performMove(posFrom, posTo);
+                val newGame = fromMoveResult(moveResult).nextTurn
+                newGame.board pieceAt posTo match {
+                    case Some(pi) =>
+                        Game(newGame.board.promote(pi, promotion), newGame.turn, HashMap[Board, Int](), newGame.movesWithoutCapture)
+                    case _ =>
+                        throw GameException("woops: something went wrong!")
+                }
+            case _ =>
+                throw GameException("Invalid promotion, piece type or position invalid")
         }
     }
 
