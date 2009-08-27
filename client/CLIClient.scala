@@ -41,7 +41,7 @@ class CLIClient {
                 val highlight = highlights get Position(x,y) match { case Some(s) => s case None => "" };
 
                 l1 = l1 + "|"+highlight+"     "+Console.RESET
-                l2 = l2 + (game.board.slots.get(Position(x,y)) match {
+                l2 = l2 + (game.board.pieceAt(Position(x,y)) match {
                     case Some(p) =>
                         val color = if (p.color == White) Console.GREEN else Console.RED;
                     "|"+highlight+"  "+color+p.typ.ab+"  "+Console.RESET;
@@ -75,7 +75,7 @@ class CLIClient {
                         draw(from :: to :: from.pathTo(to), Console.BOLD+Console.YELLOW_B)
 
                     case Analyze(pos) =>
-                        game.board.slots get pos match {
+                        game.board.pieceAt(pos) match {
                             case Some(p) => draw(game.board.movesOptionsCheckKingSafety(p), Console.WHITE_B);
                             case None => println("< Error: Can't find any piece at pos "+pos);
                         }
