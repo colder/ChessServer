@@ -14,7 +14,7 @@ case class Piece(val color: ChessTeam, val typ: PieceType, val pos: Position, va
     def move(p: Position) = Piece(color, typ, p, moved+1)
 
     override def toString = {
-        color+" "+typ
+        "["+color+" "+typ+" "+pos+"]"
     }
 
     def hasMoved = moved > 0

@@ -1,8 +1,8 @@
 package ChessServer.client
 
-import scala.collection.mutable.{HashSet,HashMap,Set}
 
 class CLIClient {
+    import scala.collection.mutable.{HashSet,HashMap,Set}
     import logic._
 
     type Highlights = Map[Position, String]
@@ -76,7 +76,8 @@ class CLIClient {
                     case Move(from, to) =>
                         game = game.move(from, to);
                         draw(from :: to :: from.pathTo(to), Console.BOLD+Console.YELLOW_B)
-
+                    case AnalyzeAll =>
+                        draw(game.board.slots.values.filter{ _.color == game.turn }.map{ game.board.movesOptionsCheckKingSafety(_) }.reduceLeft{ (a,b) => a ++ b}, Console.WHITE_B);
                     case Analyze(pos) =>
                         game.board.pieceAt(pos) match {
                             case Some(p) => draw(game.board.movesOptionsCheckKingSafety(p), Console.WHITE_B);
@@ -85,6 +86,11 @@ class CLIClient {
                         
                     case Quit => println("< Bye."); continue = false
                     case Unknown(str) => println("< \""+str+"\"?");
+                }
+
+                if (game.board.isCheckMate(game.turn)) {
+                    println("Game is over! "+game.turn+" is checkmate!");
+                    continue = false;
                 }
             } catch {
                 case _: java.io.EOFException =>
@@ -100,6 +106,7 @@ class CLIClient {
     case class Move(from: Position, to: Position) extends Cmd
     case class MovePromote(from: Position, to: Position, typ: PieceType) extends Cmd
     case class Analyze(pos: Position) extends Cmd
+    object AnalyzeAll extends Cmd
     case class Unknown(str: String) extends Cmd
     object Quit extends Cmd
 
@@ -109,6 +116,7 @@ class CLIClient {
                 case "m"  :: pf :: pt :: Nil => Move(new Position(pf), new Position(pt))
                 case "mp" :: pf :: pt :: typ :: Nil => MovePromote(new Position(pf), new Position(pt), parseType(typ))
                 case "a" :: p :: Nil => Analyze(new Position(p))
+                case "aa" :: Nil => AnalyzeAll
                 case "q" :: Nil => Quit
                 case "quit" :: Nil => Quit
                 case "exit" :: Nil => Quit

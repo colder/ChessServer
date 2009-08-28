@@ -1,12 +1,12 @@
 package ChessServer.logic
 
 
-import scala.collection.immutable.{HashMap,HashSet,Set};
+import scala.collection.immutable.{HashMap,HashSet,Set,Map,TreeHashMap};
 
 
 /* immutable */
-case class Board(val slots: Map[Position, Piece], val capturedPieces: List[Piece], val lastMove: Move) {
-    type Slots = Map[Position, Piece]
+case class Board(val slots: TreeHashMap[Position, Piece], val lastMove: Move) {
+    type Slots = TreeHashMap[Position, Piece]
 
     /**
      * Public Board API
@@ -28,6 +28,11 @@ case class Board(val slots: Map[Position, Piece], val capturedPieces: List[Piece
     def isForeign(pi: Piece, pos: Position) = slots get pos match {
         case Some(po) => po.color != pi.color
         case _ => false
+    }
+
+    /* Checks if the king of the specified color is checkmate */
+    def isCheckMate(color: ChessTeam) = {
+        !isSafeFor(king(color)) && slots.values.filter{ _.color == color }.map{ movesOptionsCheckKingSafety(_) }.forall{ _.size == 0 }
     }
 
     /* Checks if a piece is safe where it is */
@@ -106,7 +111,7 @@ case class Board(val slots: Map[Position, Piece], val capturedPieces: List[Piece
         }
 
         val newSlots = Board.placePiece(removePiece(slots, pi), pi.color, typeTo, pi.pos);
-        Board(newSlots, capturedPieces, lastMove)
+        Board(newSlots, lastMove)
     }
 
     /**
@@ -130,19 +135,19 @@ case class Board(val slots: Map[Position, Piece], val capturedPieces: List[Piece
     }
     private def movePiece(pi: Piece, posTo: Position): Board = pieceAt(posTo) match {
         case Some(op) => throw new BoardException("Slot "+posTo.algNotation+" is already occupied by "+op)
-        case None => slots get pi.pos match {
+        case None => pieceAt(pi.pos) match {
             case Some(op) if op == pi =>
-                Board((slots - pi.pos)(posTo) = pi.move(posTo), capturedPieces, Move(pi, posTo))
-            case _ => throw new BoardException("Warning! Board is out of sync: Slot "+pi.pos.algNotation+" is not occupied by "+pi)
+                Board((slots - pi.pos) ++ List((posTo, pi.move(posTo))), Move(pi, posTo))
+            case _ => throw new BoardException("Warning! Can't move "+pi+" to "+posTo+"! Board is out of sync: Slot "+pi.pos.algNotation+" is not occupied by "+pi)
         }
     }
 
-    private def capturePiece(pi: Piece): Board = Board(removePiece(slots, pi), pi :: capturedPieces, lastMove)
+    private def capturePiece(pi: Piece): Board = Board(removePiece(slots, pi), lastMove)
 
     private def removePiece(slots: Slots, pt: Piece): Slots = slots get pt.pos match {
         case Some(op) if (op == pt) =>
             slots - pt.pos
-        case _ => throw new BoardException("Warning! Board is out of sync: Slot "+pt.pos.algNotation+" is not occupied by "+pt)
+        case _ => throw new BoardException("Warning! Can't remove! Board is out of sync: Slot "+pt.pos.algNotation+" is not occupied by "+pt)
     }
 
     private def moveOrCapture(pi: Piece, pos: Position): Board = slots get pos match {
@@ -225,7 +230,7 @@ case class Board(val slots: Map[Position, Piece], val capturedPieces: List[Piece
 }
 
 object Board {
-    type Slots = Map[Position, Piece]
+    type Slots = TreeHashMap[Position, Piece]
 
     /* Returns the slots with the newly created piece in it */
     def placePiece(slots: Slots, color: ChessTeam, typ: PieceType, pos: Position): Slots = slots get pos match {
@@ -235,7 +240,7 @@ object Board {
 
     /* Initializes a chess game */
     def init = {
-        var slots = HashMap[Position, Piece]()
+        var slots = TreeHashMap[Position, Piece]()
 
         // Pawns
         for (x <- 1 to 8) {
@@ -270,7 +275,7 @@ object Board {
         slots = placePiece(slots, Black, King, Position(5, 8))
 
 
-        Board(slots, Nil, Move(Piece(White, King, Position(5,8), 0), Position(5,8)))
+        Board(slots, Move(Piece(White, King, Position(5,8), 0), Position(5,8)))
     }
 
 }
