@@ -25,6 +25,8 @@ class CLIClient {
         println
         println("Turn: "+game.turn)
         println("Last Move: "+game.board.lastMove)
+        if (game.drawsRequests._1) println("White asked for a draw");
+        if (game.drawsRequests._2) println("Black asked for a draw");
         println
         println
         println("     "+((0 to 7) map { x: Int => "   "+('A'+x).toChar+"  " }).mkString)
@@ -73,6 +75,9 @@ class CLIClient {
                     case MovePromote(from, to, typeTo) =>
                         game = game.moveAndPromote(from, to, typeTo);
                         draw(from :: to :: from.pathTo(to), Console.BOLD+Console.YELLOW_B)
+                    case Draw =>
+                        game = game.draw;
+                        draw
                     case Move(from, to) =>
                         game = game.move(from, to);
                         draw(from :: to :: from.pathTo(to), Console.BOLD+Console.YELLOW_B)
@@ -87,9 +92,8 @@ class CLIClient {
                     case Quit => println("< Bye."); continue = false
                     case Unknown(str) => println("< \""+str+"\"?");
                 }
-
-                if (game.board.isCheckMate(game.turn)) {
-                    println("Game is over! "+game.turn+" is checkmate!");
+                if (game.status != GameRunning) {
+                    println("GAME ended: "+game.status);
                     continue = false;
                 }
             } catch {
@@ -109,6 +113,7 @@ class CLIClient {
     object AnalyzeAll extends Cmd
     case class Unknown(str: String) extends Cmd
     object Quit extends Cmd
+    object Draw extends Cmd
 
     def parse(str: String): Cmd = {
         try {
@@ -118,6 +123,7 @@ class CLIClient {
                 case "a" :: p :: Nil => Analyze(new Position(p))
                 case "aa" :: Nil => AnalyzeAll
                 case "q" :: Nil => Quit
+                case "d" :: Nil => Draw
                 case "quit" :: Nil => Quit
                 case "exit" :: Nil => Quit
                 case _ => Unknown(str)
