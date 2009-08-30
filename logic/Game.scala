@@ -3,93 +3,163 @@ package ChessServer.logic
 import scala.collection.immutable.HashMap
 
 abstract class GameStatus;
-case object GameRunning  extends GameStatus;
-case object GameDraw     extends GameStatus;
-case object GameWinBlack extends GameStatus;
-case object GameWinWhite extends GameStatus;
+abstract class GameRunning extends GameStatus;
+abstract class GameEnded extends GameStatus;
+
+case object GamePlaying     extends GameRunning;
+case object GameDrawRequest extends GameRunning;
+
+case object GameDraw     extends GameEnded;
+case object GameWinBlack extends GameEnded;
+case object GameWinWhite extends GameEnded;
 
 
 /* immutable */
-case class Game(board: Board, turn: ChessTeam, boards: Map[Board, Int], movesWithoutCapture: Int, drawsRequests: (Boolean, Boolean), status: GameStatus) {
+case class Game(
+    board: Board,
+    turn: ChessTeam,
+    boards: Map[Board, Int],
+    movesWithoutCapture: Int,
+    status: GameStatus,
+    times: (Long, Long),
+    turnStartTime: Long) {
 
-    def this() = this(Board.init, White, HashMap[Board, Int](), 0, (false, false), GameRunning)
+    def this(d: Long) = this(Board.init, White, HashMap[Board, Int](), 0, GamePlaying, (d*60, d*60), System.currentTimeMillis/1000)
 
-    def nextTurn: Game = Game(board, if (turn == White) Black else White, boards, movesWithoutCapture, drawsRequests, status);
+    private def now = System.currentTimeMillis/1000;
 
-    def reinitBoards: Game = Game(board, turn, HashMap[Board, Int](), movesWithoutCapture, drawsRequests, status);
+    private def nextTurn: Game = {
+        var nextTurn: ChessTeam = White;
+        var nextTimes  = timers;
+        var nextStatus = status;
 
-    def storeBoard: Game = {
+        if (turn == White) {
+            nextTurn = Black
+        }
+
+        if (nextTimes._1 < 0) {
+            nextStatus = GameWinBlack
+        } else if (nextTimes._2 < 0 ) {
+            nextStatus = GameWinWhite
+        }
+        Game(board, nextTurn, boards, movesWithoutCapture, nextStatus, nextTimes, now);
+    }
+
+    private def setBoards(bs: Map[Board, Int]): Game =
+        Game(board, turn, bs, movesWithoutCapture, status, times, turnStartTime)
+
+    private def setStatus(st: GameStatus): Game =
+        Game(board, turn, boards, movesWithoutCapture, st, times, turnStartTime)
+
+    private def reinitBoards: Game = setBoards(HashMap[Board, Int]());
+
+    private def storeBoard: Game = {
         boards get board match {
-            case Some(i) => Game(board, turn, boards + ((board, i+1)), movesWithoutCapture, drawsRequests, status)
-            case None => Game(board, turn, boards + ((board, 1)), movesWithoutCapture, drawsRequests, status)
+            case Some(i) => setBoards(boards + ((board, i+1)))
+            case None => setBoards(boards + ((board, 1)))
         }
     }
 
-    def fromMoveResult(mr: MoveResult): Game = {
+    private def fromMoveResult(mr: MoveResult): Game = {
         val newBoards = if(mr.reinitBoards) HashMap[Board, Int]() else boards
         val newMovesWithoutCapture = if(mr.incMovesWC) movesWithoutCapture+1 else 1
 
-        Game(mr.board, turn, newBoards, newMovesWithoutCapture, (false, false), status)
+        Game(mr.board, turn, newBoards, newMovesWithoutCapture, status, times, turnStartTime)
     }
 
     /* Interface to the clients */
-    def move(posFrom: Position, posTo: Position): Game = {
-        // Check that the turn is valid
-        board pieceAt posFrom match {
-            case Some(Piece(color, _, _, _)) if color != turn =>
-                throw GameException("Wait your turn!");
-            case Some(Piece(White, Pawn, Position(_, 7), _)) =>
-                throw GameException("You can't move without promoting your pawn!");
-            case Some(Piece(Black, Pawn, Position(_, 2), _)) =>
-                throw GameException("You can't move without promoting your pawn!");
-            case _ =>
-                val moveResult = board.performMove(posFrom, posTo);
-                fromMoveResult(moveResult).nextTurn
-        }
+    def timers: (Long, Long) = if (turn == White) {
+        (times._1-(now-turnStartTime), times._2)
+    } else {
+        (times._1, times._2-(now-turnStartTime))
+    }
 
+    def move(posFrom: Position, posTo: Position): Game = {
+        if (status == GamePlaying) {
+            val ts = timers
+            if (ts._1 <= 0) {
+                setStatus(GameWinBlack)
+            } else if (ts._2 <= 0) {
+                setStatus(GameWinWhite)
+            } else {
+                // Check that the turn is valid
+                board pieceAt posFrom match {
+                    case Some(Piece(color, _, _, _)) if color != turn =>
+                        throw GameException("Wait your turn!");
+                    case Some(Piece(White, Pawn, Position(_, 7), _)) =>
+                        throw GameException("You can't move without promoting your pawn!");
+                    case Some(Piece(Black, Pawn, Position(_, 2), _)) =>
+                        throw GameException("You can't move without promoting your pawn!");
+                    case _ =>
+                        val moveResult = board.performMove(posFrom, posTo);
+                        fromMoveResult(moveResult).nextTurn
+                }
+            }
+        } else {
+            throw GameException("Can't move in this status: "+status);
+        }
     }
 
     def moveAndPromote(posFrom: Position, posTo: Position, promotion: PieceType): Game = {
-
-        board pieceAt posFrom match {
-            case Some(Piece(color, _, _, _)) if color != turn =>
-                throw GameException("Wait your turn!");
-            case Some(Piece(White, Pawn, Position(_, 7), _)) | Some(Piece(Black, Pawn, Position(_, 2), _)) =>
-                val moveResult = board.performMove(posFrom, posTo);
-                val newGame = fromMoveResult(moveResult).nextTurn
-                newGame.board pieceAt posTo match {
-                    case Some(pi) =>
-                        Game(newGame.board.promote(pi, promotion),
-                             newGame.turn,
-                             HashMap[Board, Int](),
-                             newGame.movesWithoutCapture,
-                             newGame.drawsRequests,
-                             newGame.status)
-                    case _ =>
-                        throw GameException("woops: something went wrong!")
-                }
-            case _ =>
-                throw GameException("Invalid promotion, piece type or position invalid")
-        }
-    }
-
-    def draw: Game = {
-        // If we're in a situation where a draw can be requested the game ends here
-        val g = if (isDrawCondition) {
-            Game(board, turn, boards, movesWithoutCapture, drawsRequests, GameDraw)
-        } else {
-            val drawReq = if (turn == White) (true, drawsRequests._2) else (drawsRequests._1, true);
-            if (drawReq == (true, true)) {
-                Game(board, turn, boards, movesWithoutCapture, drawReq, GameDraw)
+        if (status == GamePlaying) {
+            val ts = timers
+            if (ts._1 <= 0) {
+                setStatus(GameWinBlack)
+            } else if (ts._2 <= 0) {
+                setStatus(GameWinWhite)
             } else {
-                Game(board, turn, boards, movesWithoutCapture, drawReq, GameRunning)
+                board pieceAt posFrom match {
+                    case Some(Piece(color, _, _, _)) if color != turn =>
+                        throw GameException("Wait your turn!");
+                    case Some(Piece(White, Pawn, Position(_, 7), _)) | Some(Piece(Black, Pawn, Position(_, 2), _)) =>
+                        val moveResult = board.performMove(posFrom, posTo);
+                        val newGame = fromMoveResult(moveResult).nextTurn
+                        newGame.board pieceAt posTo match {
+                            case Some(pi) =>
+                                Game(newGame.board.promote(pi, promotion),
+                                     newGame.turn,
+                                     HashMap[Board, Int](),
+                                     newGame.movesWithoutCapture,
+                                     newGame.status,
+                                     newGame.times,
+                                     newGame.turnStartTime)
+                            case _ =>
+                                throw GameException("woops: something went wrong!")
+                        }
+                    case _ =>
+                        throw GameException("Invalid promotion, piece type or position invalid")
+                }
             }
+        } else {
+            throw GameException("Can't move in this state: "+status);
         }
-
-        g.nextTurn
     }
 
-    def isDrawCondition = {
+    def drawAccept: Game = if (status == GameDrawRequest) {
+        setStatus(GameDraw).nextTurn
+    } else {
+        throw GameException("Can't a draw without a draw request!");
+    }
+
+    def drawDecline: Game = if (status == GameDrawRequest) {
+        setStatus(GamePlaying).nextTurn
+    } else {
+        throw GameException("Can't a draw without a draw request!");
+    }
+
+    def drawAsk: Game = {
+        if (status == GamePlaying) {
+            if (isDrawCondition) {
+                setStatus(GameDraw).nextTurn
+            } else {
+                setStatus(GameDrawRequest).nextTurn
+            }
+        } else {
+            throw GameException("Can't ask/request a draw in this state: "+status);
+        }
+    }
+
+    private def isDrawCondition = {
         // check for draw conditions
         val is3repetitions = boards.values exists { _ >= 3 }
         val is50moves = movesWithoutCapture >= 50
@@ -97,7 +167,7 @@ case class Game(board: Board, turn: ChessTeam, boards: Map[Board, Int], movesWit
         is50moves || is3repetitions || insufficientForCheckmate
     }
 
-    def insufficientForCheckmate = {
+    private def insufficientForCheckmate = {
         // King vs King
         val kk = board.slots.size == 2
 

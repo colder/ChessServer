@@ -7,7 +7,7 @@ class CLIClient {
 
     type Highlights = Map[Position, String]
 
-    var game = new Game()
+    var game = new Game(20)
 
     def draw: Unit = draw(Map[Position, String]());
 
@@ -24,9 +24,10 @@ class CLIClient {
 
         println
         println("Turn: "+game.turn)
+        println("Status: "+game.status)
         println("Last Move: "+game.board.lastMove)
-        if (game.drawsRequests._1) println("White asked for a draw");
-        if (game.drawsRequests._2) println("Black asked for a draw");
+        println("White timer:"+game.times._1+" sec");
+        println("Black timer:"+game.times._2+" sec");
         println
         println
         println("     "+((0 to 7) map { x: Int => "   "+('A'+x).toChar+"  " }).mkString)
@@ -75,8 +76,18 @@ class CLIClient {
                     case MovePromote(from, to, typeTo) =>
                         game = game.moveAndPromote(from, to, typeTo);
                         draw(from :: to :: from.pathTo(to), Console.BOLD+Console.YELLOW_B)
+                    case Timers =>
+                        val timers = game.timers
+                        println("White timer:"+timers._1+" sec");
+                        println("Black timer:"+timers._2+" sec");
                     case Draw =>
-                        game = game.draw;
+                        game = game.drawAsk;
+                        draw
+                    case DrawAccept =>
+                        game = game.drawAccept;
+                        draw
+                    case DrawDecline =>
+                        game = game.drawDecline;
                         draw
                     case Move(from, to) =>
                         game = game.move(from, to);
@@ -92,9 +103,12 @@ class CLIClient {
                     case Quit => println("< Bye."); continue = false
                     case Unknown(str) => println("< \""+str+"\"?");
                 }
-                if (game.status != GameRunning) {
-                    println("GAME ended: "+game.status);
-                    continue = false;
+
+                game.status match {
+                    case _:GameEnded =>
+                        println("GAME ended: "+game.status);
+                        continue = false;
+                    case _ =>
                 }
             } catch {
                 case _: java.io.EOFException =>
@@ -114,6 +128,9 @@ class CLIClient {
     case class Unknown(str: String) extends Cmd
     object Quit extends Cmd
     object Draw extends Cmd
+    object DrawAccept extends Cmd
+    object DrawDecline extends Cmd
+    object Timers extends Cmd
 
     def parse(str: String): Cmd = {
         try {
@@ -124,6 +141,9 @@ class CLIClient {
                 case "aa" :: Nil => AnalyzeAll
                 case "q" :: Nil => Quit
                 case "d" :: Nil => Draw
+                case "da" :: Nil => DrawAccept
+                case "dd" :: Nil => DrawDecline
+                case "t" :: Nil => Timers
                 case "quit" :: Nil => Quit
                 case "exit" :: Nil => Quit
                 case _ => Unknown(str)
