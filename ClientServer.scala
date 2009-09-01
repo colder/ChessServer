@@ -10,16 +10,16 @@ case object Playing extends ClientStatus;
 
 case class ServerClient(server: Server, sock: Socket) extends Thread {
     var clientState: ClientStatus = Annonymous;
+    val in = new BufferedReader(new InputStreamReader(sock.getInputStream()))
+    val out =  new PrintWriter(new OutputStreamWriter(sock.getOutputStream()))
 
     override def run = {
         println("Client connected!");
-        val br = new BufferedReader(new InputStreamReader(sock.getInputStream()))
-        val pw =  new PrintWriter(new OutputStreamWriter(sock.getOutputStream()))
 
         var continue = true;
         while (continue) {
             try {
-                val line = br.readLine;
+                val line = in.readLine;
                 if (line == null) {
                     continue = false;
                 } else {
