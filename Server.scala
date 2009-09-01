@@ -1,41 +1,85 @@
 package ChessServer
 
 import java.net.ServerSocket;
+import scala.collection.mutable.HashMap
 
 class Server(port: Int) {
     val serverSocket = new ServerSocket(port)
 
-    val games: List[ServerGame] = Nil;
+    var games = new HashMap[(String, Long), ServerGame]()
+    var clientsToGames = new HashMap[ServerClient, ServerGame]()
 
     def start = {
         println("Listening to port "+port+"...");
         while(true) ServerClient(this, serverSocket.accept())
     }
 
+    def create(client: ServerClient, timers: Long): Option[ServerGame] = {
+        if (clientsToGames contains client) {
+            client.send(<games><nack msg="You're already playing a game!" /></games>)
+            None
+        } else {
+            val game = ServerGame(client, timers)
+            games((client.username, timers)) = game
+            clientsToGames(client) = game
+            client.send(<games><ack /></games>)
+            Some(game)
+        }
+    }
+
+    def join(client: ServerClient, host: String, timers: Long): Option[ServerGame] = {
+        if (clientsToGames contains client) {
+            client.send(<games><nack msg="You're already playing a game!" /></games>)
+            None
+        }
+
+        games.get((host, timers)) match {
+            case Some(g) =>
+                if (g.started) {
+                    client.send(<games><nack msg="Game not found!" /></games>)
+                    None
+                } else {
+                    g.join(client)
+                    Some(g)
+                }
+
+            case None =>
+                client.send(<games><nack msg="Game not found!" /></games>)
+                None
+        }
+    }
+
+    def listGames(client: ServerClient) = {
+        client.send("<games>"+{ games.values.map { g => "<game host=\""+g.host+"\" timers=\""+g.timers+"\" />" }.mkString }+"</games>")
+    }
+
 }
 
 
 
-class ServerGame(val host: ServerClient, val timers: Int) {
+case class ServerGame(val host: ServerClient, val timers: Long) {
     import logic._
 
     var game = new Game(timers)
     var opponent: Option[ServerClient] = None
 
-    def join(player: Option[ServerClient]) = opponent match {
+    def started = opponent != None
+
+    def join(player: ServerClient) = opponent match {
         case Some(op) =>
             throw ProtocolException("This game is already full")
         case None =>
-            opponent = player
+            opponent = Some(player)
             game = game.start
     }
 
     def sendOrDisc(to: ServerClient, content: String) = {
         try {
-            to.out.println(content)
+            to.send(content)
         } catch {
-            case e => 
+            case e =>
                 println("Client disconnected: "+e.getMessage)
+                // TODO disconnect the user
         }
     }
 

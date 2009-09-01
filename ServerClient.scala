@@ -10,8 +10,8 @@ case object Playing extends ClientStatus;
 
 case class ServerClient(server: Server, sock: Socket) extends Thread {
     var clientState: ClientStatus = Annonymous;
-    val in = new BufferedReader(new InputStreamReader(sock.getInputStream()))
-    val out =  new PrintWriter(new OutputStreamWriter(sock.getOutputStream()))
+    private val in = new BufferedReader(new InputStreamReader(sock.getInputStream()))
+    private val out =  new PrintWriter(new OutputStreamWriter(sock.getOutputStream()))
 
     override def run = {
         println("Client connected!");
@@ -99,6 +99,9 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
         }
         true
     }
+
+    def send(msg: xml.Node): Unit = out.println(msg.toString)
+    def send(msg: String): Unit = out.println(msg)
 
     start
 }
