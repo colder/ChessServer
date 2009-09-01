@@ -1,5 +1,7 @@
 package ChessServer.client
 
+import java.net._
+import java.io.{BufferedReader,InputStreamReader,PrintWriter}
 
 class CLIClient {
     import scala.collection.mutable.{HashSet,HashMap,Set}
@@ -66,6 +68,13 @@ class CLIClient {
 
     def start() = {
         var continue = true;
+
+        println("Connecting...");
+        val sock = new Socket("localhost", 12345);
+        val out = new PrintWriter(sock.getOutputStream(), true);
+        val in = new BufferedReader(new InputStreamReader(sock.getInputStream()));
+        println("OK!");
+
         draw
         while(continue) {
             try {
@@ -74,24 +83,17 @@ class CLIClient {
 
                 cmd match {
                     case MovePromote(from, to, typeTo) =>
-                        game = game.moveAndPromote(from, to, typeTo);
-                        draw(from :: to :: from.pathTo(to), Console.BOLD+Console.YELLOW_B)
+                        out.println(<action><move from="{ from.algNotation }" to="{ to.algNotation }" promotion="{ typeTo.ab }" /></action>);
                     case Timers =>
-                        val timers = game.timers
-                        println("White timer:"+timers._1+" sec");
-                        println("Black timer:"+timers._2+" sec");
+                        out.println(<action><timers /></action>);
                     case Draw =>
-                        game = game.drawAsk;
-                        draw
+                        out.println(<action><draw op="ask" /></action>);
                     case DrawAccept =>
-                        game = game.drawAccept;
-                        draw
+                        out.println(<action><draw op="accept" /></action>);
                     case DrawDecline =>
-                        game = game.drawDecline;
-                        draw
+                        out.println(<action><draw op="decline" /></action>);
                     case Move(from, to) =>
-                        game = game.move(from, to);
-                        draw(from :: to :: from.pathTo(to), Console.BOLD+Console.YELLOW_B)
+                        out.println(<action><move from={ from.algNotation } to={ to.algNotation } /></action>);
                     case AnalyzeAll =>
                         draw(game.board.slots.values.filter{ _.color == game.turn }.map{ game.board.movesOptionsCheckKingSafety(_) }.reduceLeft{ (a,b) => a ++ b}, Console.WHITE_B);
                     case Analyze(pos) =>

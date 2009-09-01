@@ -1,9 +1,9 @@
 package ChessServer;
 
-object Main {
+object MainClient {
     def main(args: Array[String]): Unit = {
-        val s = new Server(12345);
+        val c = new client.CLIClient;
 
-        s.start
+        c.start
     }
 }

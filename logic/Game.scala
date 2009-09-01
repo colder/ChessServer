@@ -22,7 +22,7 @@ case class Game(
     movesWithoutCapture: Int,
     status: GameStatus,
     times: (Long, Long),
-    turnStartTime: Long) {
+    turnStartTime: Long) extends ServerInterface {
 
     def this(d: Long) = this(Board.init, White, HashMap[Board, Int](), 0, GamePlaying, (d*60, d*60), System.currentTimeMillis/1000)
 

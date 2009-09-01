@@ -6,5 +6,8 @@ scalafiles:
 test: scalafiles
 	scala -cp classes ChessServer.Main
 
-run: scalafiles
+run-server: scalafiles
 	scala -cp classes ChessServer.Main
+
+run-client: scalafiles
+	scala -cp classes ChessServer.MainClient
