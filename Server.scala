@@ -27,39 +27,67 @@ class ServerGame(val host: ServerClient, val timers: Int) {
             throw ProtocolException("This game is already full")
         case None =>
             opponent = player
-            game.start
+            game = game.start
     }
 
-    def move(player: ServerClient, from: Position, to: Position) = {
-        checkPlayerTurn(player)
+    def sendOrDisc(to: ServerClient, content: String) = {
+        try {
+            to.out.println(content)
+        } catch {
+            case e => 
+                println("Client disconnected: "+e.getMessage)
+        }
     }
 
-    def moveAndPromote(player: ServerClient, from: Position, to: Position, promotion: PieceType) = {
-        checkPlayerTurn(player)
+    def replyNack(player: ServerClient, reason: String) = {
+        sendOrDisc(player, <game><nack msg={ reason } /></game>.toString)
     }
 
-    def timers(player: ServerClient) = {
-
+    def dispatch(player: ServerClient, msg: String) = {
+        // Send ack to the sender
+        sendOrDisc(player, <game><ack /></game>.toString)
+        // transmit the message to the other
+        if (player == host) {
+            opponent match {
+                case Some(op) => sendOrDisc(op, msg)
+                case None => println("Trying to send to an innexistent opponent!")
+            }
+        } else {
+            sendOrDisc(host, msg)
+        }
     }
 
-    def drawAsk(player: ServerClient) = {
-        checkPlayerTurn(player)
-        game = game.drawAccept
+    def op(player: ServerClient, action: => Unit, dispatchMsg: xml.Node) = {
+        try {
+            checkGameConditions(player)
+            action
+            dispatch(player, dispatchMsg.toString)
+        } catch {
+            case e => replyNack(player, e.getMessage);
+        }
     }
 
-    def drawAccept(player: ServerClient) = {
-        checkPlayerTurn(player)
-        game = game.drawAccept
-    }
+    def move(player: ServerClient, from: Position, to: Position) =
+        op(player, game = game.move(from, to), <game><move from={ from.algNotation } to={ to.algNotation } /></game>)
 
-    def drawDecline(player: ServerClient) = {
-        checkPlayerTurn(player)
-        game = game.drawDecline
-    }
+    def moveAndPromote(player: ServerClient, from: Position, to: Position, promotion: PieceType) =
+        op(player, game = game.move(from, to), <game><move from={ from.algNotation } to={ to.algNotation } promotion={ promotion.ab } /></game>)
 
-    def checkPlayerTurn(player: ServerClient) = {
+    def drawAsk(player: ServerClient) =
+        op(player, game = game.drawAsk, <game><drawAsk /></game>)
+
+    def drawAccept(player: ServerClient) =
+        op(player, game = game.drawAccept, <game><drawAccept /></game>)
+
+    def drawDecline(player: ServerClient) =
+        op(player, game = game.drawDecline, <game><drawDecline /></game>)
+
+
+    def checkGameConditions(player: ServerClient) = {
         if (player == host && game.turn != White || player != host && game.turn != Black) {
             throw ProtocolException("Wait your turn!");
+        } else if (opponent == None) {
+            throw ProtocolException("Wait for your opponent!");
         }
     }
 }
