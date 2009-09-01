@@ -42,65 +42,124 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
         val data = XML.loadString(line)
 
         data match {
-            case <auth>{ a }</auth> => a match {
-                case Elem(_, "login", attr, _) =>
-                    if (attr.get("password") != None && attr.get("username") != None) {
-                        //TODO
-                    } else {
-                        throw ProtocolException("Invalid auth.login command");
-                    }
-                case Elem(_, "logout", attr, _) =>
-                        //TODO
+            case <auth>{ a }</auth> =>
+                a match {
+                    case Elem(_, "login", attr, _) =>
+                        if (attr.get("password") != None && attr.get("username") != None) {
+                            if (status == Annonymous) {
+                                if (server.auth(attr("username").toString, attr("password").toString)) {
+                                    status = Logged
+                                    sendAck
+                                } else {
+                                    sendNack("Invalid user/pass");
+                                }
+                            } else {
+                                sendNack("You're already logged");
+                            }
+                        } else {
+                            sendNack("Invalid auth.login command");
+                        }
+                    case Elem(_, "logout", attr, _) =>
+                        if (status == Logged) {
+                            status = Annonymous
+                            sendAck
+                        } else if (status == Playing) {
+                            sendNack("Resign from your game first!");
+                        }
+                    case _ =>
+                        sendNack("Unknown games command");
 
-                case _ =>
-                    throw ProtocolException("Unknown games command");
+                }
+                true
 
-            }
-            case <games>{ g }</games> => g match {
-                case Elem(_, "create", attr, _) =>
-                    if (attr.get("timers") != None) {
-                        //TODO
-                    } else {
-                        throw ProtocolException("Invalid games.create command");
-                    }
-                case Elem(_, "list", attr, _) =>
-                        //TODO
+            case <games>{ g }</games> =>
+                if (status == Logged) {
+                    g match {
+                        case Elem(_, "create", attr, _) =>
+                            if (attr.get("timers") != None) {
+                                try {
+                                    server.create(this, attr("timers").toString.toLong)
+                                    status = Playing
+                                    sendAck
+                                } catch {
+                                    case se: ServerException =>
+                                        sendNack("Failed to create: "+se.getMessage)
+                                }
+                            } else {
+                                sendNack("Invalid games.create command");
+                            }
+                        case Elem(_, "join", attr, _) =>
+                            if (attr.get("host") != None) {
+                                try {
+                                    server.join(this, attr("host").toString)
+                                    status = Playing
+                                    sendAck
+                                } catch {
+                                    case se: ServerException =>
+                                        sendNack("Failed to join: "+se.getMessage)
+                                }
+                            } else {
+                                sendNack("Invalid games.create command");
+                            }
+                        case Elem(_, "list", attr, _) =>
+                            send("<games>"+{ server.games.values.map { g => "<game host=\""+g.host+"\" timers=\""+g.timers+"\" />" }.mkString }+"</games>")
 
-                case _ =>
-                    throw ProtocolException("Unknown games command");
+                        case _ =>
+                            sendNack("Unknown games command");
 
-            }
-            case <game>{ g }</game> => g match {
-                case Elem(_, "move", attr, _) => 
-                    if (attr.get("from") != None && attr.get("to") != None) {
-                        //TODO
-                    } else {
-                        throw ProtocolException("Invalid game.move command");
                     }
-                case Elem(_, "movepromote", attr, _) =>
-                    if (attr.get("from") != None && attr.get("to") != None && attr.get("promotion") != None) {
-                        //TODO
+                } else {
+                    if (status == Annonymous) {
+                        sendNack("You need to be logged")
                     } else {
-                        throw ProtocolException("Invalid game.movepromote command");
+                        sendNack("Leave your game fisrt")
                     }
-                case Elem(_, "resign", _, _) =>
-                    // TODO
-                case Elem(_, "drawask", _, _) =>
-                    // TODO
-                case Elem(_, "drawaccept", _, _) =>
-                    // TODO
-                case Elem(_, "drawdecline", _, _) =>
-                    // TODO
-                case Elem(_, "timers", _, _) =>
-                    // TODO
-                case _ =>
-                    throw ProtocolException("Unknown game command");
-            }
+                }
+                true
+
+            case <game>{ g }</game> =>
+                if (status == Playing) {
+                    g match {
+                        case Elem(_, "move", attr, _) => 
+                            if (attr.get("from") != None && attr.get("to") != None) {
+                                //TODO
+                            } else {
+                                sendNack("Invalid game.move command");
+                            }
+                        case Elem(_, "movepromote", attr, _) =>
+                            if (attr.get("from") != None && attr.get("to") != None && attr.get("promotion") != None) {
+                                //TODO
+                            } else {
+                                sendNack("Invalid game.movepromote command");
+                            }
+                        case Elem(_, "resign", _, _) =>
+                            // TODO
+                        case Elem(_, "drawask", _, _) =>
+                            // TODO
+                        case Elem(_, "drawaccept", _, _) =>
+                            // TODO
+                        case Elem(_, "drawdecline", _, _) =>
+                            // TODO
+                        case Elem(_, "timers", _, _) =>
+                            // TODO
+                        case _ =>
+                            sendNack("Unknown game command");
+                    }
+                } else {
+                    sendNack("You need to be playing")
+                }
+                true
+            case <quit /> =>
+                false
+                // TODO: resign
+
             case _ =>
-                println("ignore...");
+                true
         }
-        true
     }
+
+    def sendNack(msg: String) = send(<nack msg={ msg } />);
+    def sendAck = send(<ack />);
 
     def send(msg: xml.Node): Unit = out.println(msg.toString)
     def send(msg: String): Unit = out.println(msg)

@@ -6,12 +6,9 @@ CLIENT -> SERVER
 <games><list /></games>
 
 SERVER -> CLIENT
-<auth><ack /></auth>
-<game><ack /></game>
-<auth><nack msg=".." /></auth>
-<game><nack msg=".." /></game>
-<game><timers white=".." black=".."/></game>
-
+<ack />
+<nack msg=".." />
+<timers white=".." black=".."/>
 <games><game timers="" opponent="" />..</games>
 
 CLIENT <-> SERVER
