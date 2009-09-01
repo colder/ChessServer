@@ -14,10 +14,19 @@ class Server(port: Int) {
     }
 
     def create(client: ServerClient, timers: Long): Option[ServerGame] = {
-        if (client.status == Annonymous) {
-            client.send(<games><nack msg="Please login first" /></games>)
+        if (games contains client.username) {
+            client.send(<games><nack msg="You're already playing a game!" /></games>)
             None
-        } else if (games contains client.username) {
+        } else {
+            val game = ServerGame(client, timers)
+            games(client.username) = game
+            client.send(<games><ack /></games>)
+            Some(game)
+        }
+    }
+
+    def create(client: ServerClient, timers: Long): Option[ServerGame] = {
+        if (games contains client.username) {
             client.send(<games><nack msg="You're already playing a game!" /></games>)
             None
         } else {
@@ -29,10 +38,7 @@ class Server(port: Int) {
     }
 
     def join(client: ServerClient, host: String, timers: Long): Option[ServerGame] = {
-        if (client.status == Annonymous) {
-            client.send(<games><nack msg="Please login first" /></games>)
-            None
-        } else if (games contains client.username) {
+        if (games contains client.username) {
             client.send(<games><nack msg="You're already playing a game!" /></games>)
             None
         } else {
