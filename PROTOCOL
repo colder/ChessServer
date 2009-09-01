@@ -1,22 +1,24 @@
 CLIENT -> SERVER
-<auth><login username="" password="" /></auth>
+<auth><login username=".." password=".." /></auth>
 <auth><logout /></auth>
-<games><create timers="" /></games>
+<games><create timers=".." /></games>
 <games><list /></games>
 
 SERVER -> CLIENT
 <auth><ack /></auth>
 <game><ack /></game>
-<auth><nack msg="" /></auth>
-<game><nack msg="" /></game>
+<auth><nack msg=".." /></auth>
+<game><nack msg=".." /></game>
+<game><timers white=".." black=".."/></game>
 
-<games><game timers="" opponent="" /></games>
+<games><game timers="" opponent="" />..</games>
 
 CLIENT <-> SERVER
-<game><move from="pos" to="pos"/></game>
-<game><movepromote from="pos" to="pos" promotion="K"/></game>
+<game><move from=".." to=".."/></game>
+<game><movepromote from=".." to=".." promotion=".."/></game>
 <game><drawask /></game>
 <game><drawaccept /></game>
 <game><drawdecline /></game>
 <game><resign /></game>
 <game><timers /></game>
+<chat><msg>..</msg></chat>

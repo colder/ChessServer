@@ -5,6 +5,7 @@ import scala.collection.immutable.HashMap
 abstract class GameStatus;
 abstract class GameRunning extends GameStatus;
 abstract class GameEnded extends GameStatus;
+case object GameInit extends GameStatus;
 
 case object GamePlaying     extends GameRunning;
 case object GameDrawRequest extends GameRunning;
@@ -24,7 +25,7 @@ case class Game(
     times: (Long, Long),
     turnStartTime: Long) extends ServerInterface {
 
-    def this(d: Long) = this(Board.init, White, HashMap[Board, Int](), 0, GamePlaying, (d*60, d*60), System.currentTimeMillis/1000)
+    def this(d: Long) = this(Board.init, White, HashMap[Board, Int](), 0, GameInit, (d*60, d*60), System.currentTimeMillis/1000)
 
     private def now = System.currentTimeMillis/1000;
 
@@ -68,12 +69,23 @@ case class Game(
     }
 
     /* Interface to the clients */
-    def timers: (Long, Long) = if (turn == White) {
-        (times._1-(now-turnStartTime), times._2)
-    } else {
-        (times._1, times._2-(now-turnStartTime))
+    def timers: (Long, Long) = {
+        if (status == GamePlaying) {
+            if (turn == White) {
+                (times._1-(now-turnStartTime), times._2)
+            } else {
+                (times._1, times._2-(now-turnStartTime))
+            }
+        } else {
+            times
+        }
     }
 
+    def start: Game = if (status == GameInit) {
+        Game(board, turn, boards, movesWithoutCapture, GamePlaying, times, now)
+    } else {
+        throw GameException("Cannot start a game again: "+status);
+    }
     def move(posFrom: Position, posTo: Position): Game = {
         if (status == GamePlaying) {
             val ts = timers
@@ -138,13 +150,13 @@ case class Game(
     def drawAccept: Game = if (status == GameDrawRequest) {
         setStatus(GameDraw).nextTurn
     } else {
-        throw GameException("Can't a draw without a draw request!");
+        throw GameException("Can't accept a draw without a draw request!");
     }
 
     def drawDecline: Game = if (status == GameDrawRequest) {
         setStatus(GamePlaying).nextTurn
     } else {
-        throw GameException("Can't a draw without a draw request!");
+        throw GameException("Can't decline a draw without a draw request!");
     }
 
     def drawAsk: Game = {

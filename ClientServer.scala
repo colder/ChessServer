@@ -45,13 +45,13 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                     if (attr.get("password") != None && attr.get("username") != None) {
                         //TODO
                     } else {
-                        throw new ProtocolException("Invalid auth.login command");
+                        throw ProtocolException("Invalid auth.login command");
                     }
                 case Elem(_, "logout", attr, _) =>
                         //TODO
 
                 case _ =>
-                    throw new ProtocolException("Unknown games command");
+                    throw ProtocolException("Unknown games command");
 
             }
             case <games>{ g }</games> => g match {
@@ -59,13 +59,13 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                     if (attr.get("timers") != None) {
                         //TODO
                     } else {
-                        throw new ProtocolException("Invalid games.create command");
+                        throw ProtocolException("Invalid games.create command");
                     }
                 case Elem(_, "list", attr, _) =>
                         //TODO
 
                 case _ =>
-                    throw new ProtocolException("Unknown games command");
+                    throw ProtocolException("Unknown games command");
 
             }
             case <game>{ g }</game> => g match {
@@ -73,13 +73,13 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                     if (attr.get("from") != None && attr.get("to") != None) {
                         //TODO
                     } else {
-                        throw new ProtocolException("Invalid game.move command");
+                        throw ProtocolException("Invalid game.move command");
                     }
                 case Elem(_, "movepromote", attr, _) =>
                     if (attr.get("from") != None && attr.get("to") != None && attr.get("promotion") != None) {
                         //TODO
                     } else {
-                        throw new ProtocolException("Invalid game.movepromote command");
+                        throw ProtocolException("Invalid game.movepromote command");
                     }
                 case Elem(_, "resign", _, _) =>
                     // TODO
@@ -92,7 +92,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                 case Elem(_, "timers", _, _) =>
                     // TODO
                 case _ =>
-                    throw new ProtocolException("Unknown game command");
+                    throw ProtocolException("Unknown game command");
             }
             case _ =>
                 println("ignore...");
