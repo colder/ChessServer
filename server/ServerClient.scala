@@ -1,4 +1,4 @@
-package ChessServer
+package ChessServer.server
 
 import java.net._
 import java.io._

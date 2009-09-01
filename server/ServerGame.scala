@@ -1,4 +1,4 @@
-package ChessServer
+package ChessServer.server
 
 case class ServerGame(val host: ServerClient, val timers: Long) {
     import logic._

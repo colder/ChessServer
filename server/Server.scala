@@ -1,4 +1,4 @@
-package ChessServer
+package ChessServer.server
 
 import java.net.ServerSocket;
 import scala.collection.mutable.HashMap
