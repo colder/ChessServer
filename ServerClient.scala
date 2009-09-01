@@ -9,7 +9,9 @@ case object Logged extends ClientStatus;
 case object Playing extends ClientStatus;
 
 case class ServerClient(server: Server, sock: Socket) extends Thread {
-    var clientState: ClientStatus = Annonymous;
+    var status: ClientStatus = Annonymous
+    var username: String = ""
+
     private val in = new BufferedReader(new InputStreamReader(sock.getInputStream()))
     private val out =  new PrintWriter(new OutputStreamWriter(sock.getOutputStream()))
 

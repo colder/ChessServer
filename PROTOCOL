@@ -2,6 +2,7 @@ CLIENT -> SERVER
 <auth><login username=".." password=".." /></auth>
 <auth><logout /></auth>
 <games><create timers=".." /></games>
+<games><join host=".." /></games>
 <games><list /></games>
 
 SERVER -> CLIENT

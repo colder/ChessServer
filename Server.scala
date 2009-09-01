@@ -6,8 +6,7 @@ import scala.collection.mutable.HashMap
 class Server(port: Int) {
     val serverSocket = new ServerSocket(port)
 
-    var games = new HashMap[(String, Long), ServerGame]()
-    var clientsToGames = new HashMap[ServerClient, ServerGame]()
+    var games = new HashMap[String, ServerGame]()
 
     def start = {
         println("Listening to port "+port+"...");
@@ -15,42 +14,52 @@ class Server(port: Int) {
     }
 
     def create(client: ServerClient, timers: Long): Option[ServerGame] = {
-        if (clientsToGames contains client) {
+        if (client.status == Annonymous) {
+            client.send(<games><nack msg="Please login first" /></games>)
+            None
+        } else if (games contains client.username) {
             client.send(<games><nack msg="You're already playing a game!" /></games>)
             None
         } else {
             val game = ServerGame(client, timers)
-            games((client.username, timers)) = game
-            clientsToGames(client) = game
+            games(client.username) = game
             client.send(<games><ack /></games>)
             Some(game)
         }
     }
 
     def join(client: ServerClient, host: String, timers: Long): Option[ServerGame] = {
-        if (clientsToGames contains client) {
+        if (client.status == Annonymous) {
+            client.send(<games><nack msg="Please login first" /></games>)
+            None
+        } else if (games contains client.username) {
             client.send(<games><nack msg="You're already playing a game!" /></games>)
             None
-        }
+        } else {
+            games.get(host) match {
+                case Some(g) =>
+                    if (g.started) {
+                        client.send(<games><nack msg="Game not found!" /></games>)
+                        None
+                    } else {
+                        g.join(client)
+                        Some(g)
+                    }
 
-        games.get((host, timers)) match {
-            case Some(g) =>
-                if (g.started) {
+                case None =>
                     client.send(<games><nack msg="Game not found!" /></games>)
                     None
-                } else {
-                    g.join(client)
-                    Some(g)
-                }
-
-            case None =>
-                client.send(<games><nack msg="Game not found!" /></games>)
-                None
+            }
         }
     }
 
     def listGames(client: ServerClient) = {
-        client.send("<games>"+{ games.values.map { g => "<game host=\""+g.host+"\" timers=\""+g.timers+"\" />" }.mkString }+"</games>")
+        if (client.status == Annonymous) {
+            client.send(<games><nack msg="Please login first" /></games>)
+            None
+        } else {
+            client.send("<games>"+{ games.values.map { g => "<game host=\""+g.host+"\" timers=\""+g.timers+"\" />" }.mkString }+"</games>")
+        }
     }
 
 }
