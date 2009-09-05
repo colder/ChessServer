@@ -13,7 +13,7 @@ class Server(port: Int) {
         while(true) ServerClient(this, serverSocket.accept())
     }
 
-    def auth(username: String, password: String): Boolean = {
+    def auth(username: String, password: String, seed: String): Boolean = {
         // TODO
         true
     }

@@ -45,6 +45,9 @@ case class ServerGame(val host: ServerClient, val timers: Long) {
     def moveAndPromote(player: ServerClient, from: Position, to: Position, promotion: PieceType) =
         op(player, game = game.move(from, to), <game><move from={ from.algNotation } to={ to.algNotation } promotion={ promotion.ab } /></game>)
 
+    def resign(player: ServerClient) =
+        op(player, game = game.resign, <game><resign /></game>)
+
     def drawAsk(player: ServerClient) =
         op(player, game = game.drawAsk, <game><drawAsk /></game>)
 

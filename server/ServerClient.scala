@@ -11,6 +11,10 @@ case object Playing extends ClientStatus;
 case class ServerClient(server: Server, sock: Socket) extends Thread {
     var status: ClientStatus = Annonymous
     var username: String = ""
+    var _game: Option[ServerGame] = None
+    def game: ServerGame = {
+        _game getOrElse (throw new ServerException("Invalid state, there should be a game at this point!"))
+    }
 
     private val in = new BufferedReader(new InputStreamReader(sock.getInputStream()))
     private val out =  new PrintWriter(new OutputStreamWriter(sock.getOutputStream()))
@@ -47,7 +51,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                     case Elem(_, "login", attr, _) =>
                         if (attr.get("password") != None && attr.get("username") != None) {
                             if (status == Annonymous) {
-                                if (server.auth(attr("username").toString, attr("password").toString)) {
+                                if (server.auth(attr("username").toString, attr("password").toString, "")) {
                                     status = Logged
                                     sendAck
                                 } else {
@@ -78,7 +82,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                         case Elem(_, "create", attr, _) =>
                             if (attr.get("timers") != None) {
                                 try {
-                                    server.create(this, attr("timers").toString.toLong)
+                                    _game = Some(server.create(this, attr("timers").toString.toLong))
                                     status = Playing
                                     sendAck
                                 } catch {
@@ -118,22 +122,36 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                 true
 
             case <game>{ g }</game> =>
+                import logic._
                 if (status == Playing) {
                     g match {
                         case Elem(_, "move", attr, _) => 
                             if (attr.get("from") != None && attr.get("to") != None) {
-                                //TODO
+                                game.move(this,
+                                            new Position(attr.get("from").toString),
+                                            new Position(attr.get("to").toString))
                             } else {
                                 sendNack("Invalid game.move command");
                             }
                         case Elem(_, "movepromote", attr, _) =>
+                            def parsePromotion(str: String): PieceType = str.toUpperCase match {
+                                case "Q" => Queen
+                                case "R" => Rook
+                                case "N" => Knight
+                                case "B" => Bishop
+                                case _ =>
+                                    throw new ServerException("Invalid promotion type");
+                            }
                             if (attr.get("from") != None && attr.get("to") != None && attr.get("promotion") != None) {
-                                //TODO
+                                game.moveAndPromote(this,
+                                                        new Position(attr.get("from").toString),
+                                                        new Position(attr.get("to").toString),
+                                                        parsePromotion(attr.get("promotion").toString))
                             } else {
                                 sendNack("Invalid game.movepromote command");
                             }
                         case Elem(_, "resign", _, _) =>
-                            // TODO
+                                game.resign(this)
                         case Elem(_, "drawask", _, _) =>
                             // TODO
                         case Elem(_, "drawaccept", _, _) =>
