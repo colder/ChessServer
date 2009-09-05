@@ -3,6 +3,8 @@ package ChessServer.server
 import java.net._
 import java.io._
 
+import java.util.UUID
+
 abstract class ClientStatus;
 case object Annonymous extends ClientStatus;
 case object Logged extends ClientStatus;
@@ -19,8 +21,14 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
     private val in = new BufferedReader(new InputStreamReader(sock.getInputStream()))
     private val out =  new PrintWriter(new OutputStreamWriter(sock.getOutputStream()))
 
+    val seed: String = {
+        UUID.randomUUID.toString
+    }
+
     override def run = {
         println("Client connected!");
+
+        send(<hello seed={ seed } />)
 
         var continue = true;
         while (continue) {
@@ -49,9 +57,9 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
             case <auth>{ a }</auth> =>
                 a match {
                     case Elem(_, "login", attr, _) =>
-                        if (attr.get("password") != None && attr.get("username") != None) {
+                        if (attr.get("challenge") != None && attr.get("username") != None) {
                             if (status == Annonymous) {
-                                if (server.auth(attr("username").toString, attr("password").toString, "")) {
+                                if (server.auth(attr("username").toString, attr("challenge").toString, seed)) {
                                     status = Logged
                                     sendAck
                                 } else {
@@ -173,10 +181,12 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                 }
                 true
             case <quit /> =>
+                if (_game != None) {
+                    game.resign(this)
+                }
                 false
-                // TODO: resign
-
             case _ =>
+                sendNack("woot?")
                 true
         }
     }
@@ -184,8 +194,12 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
     def sendNack(msg: String) = send(<nack msg={ msg } />);
     def sendAck = send(<ack />);
 
-    def send(msg: xml.Node): Unit = out.println(msg.toString)
-    def send(msg: String): Unit = out.println(msg)
+    def send(msg: xml.Node): Unit = send(msg.toString)
+    def send(msg: String): Unit = {
+        println("> "+msg)
+        out.println(msg)
+        out.flush
+    }
 
     start
 }

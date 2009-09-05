@@ -13,9 +13,12 @@ class Server(port: Int) {
         while(true) ServerClient(this, serverSocket.accept())
     }
 
-    def auth(username: String, password: String, seed: String): Boolean = {
-        // TODO
-        true
+    def auth(username: String, challenge: String, seed: String): Boolean = {
+        if (Hash.sha1("plop"+seed) equals challenge) {
+            true
+        } else {
+            false
+        }
     }
 
     def create(client: ServerClient, timers: Long): ServerGame = {
