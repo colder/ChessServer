@@ -147,6 +147,16 @@ case class Game(
         }
     }
 
+    def resign: Game = if (status == GamePlaying) {
+        if (turn == White) {
+            setStatus(GameWinBlack).nextTurn
+        } else {
+            setStatus(GameWinWhite).nextTurn
+        }
+    } else {
+        throw GameException("Can't resign when not playing!");
+    }
+
     def drawAccept: Game = if (status == GameDrawRequest) {
         setStatus(GameDraw).nextTurn
     } else {
