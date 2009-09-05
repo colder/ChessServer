@@ -143,23 +143,28 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                                     throw new ServerException("Invalid promotion type");
                             }
                             if (attr.get("from") != None && attr.get("to") != None && attr.get("promotion") != None) {
-                                game.moveAndPromote(this,
-                                                        new Position(attr.get("from").toString),
-                                                        new Position(attr.get("to").toString),
-                                                        parsePromotion(attr.get("promotion").toString))
+                                try {
+                                    game.moveAndPromote(this,
+                                                            new Position(attr.get("from").toString),
+                                                            new Position(attr.get("to").toString),
+                                                            parsePromotion(attr.get("promotion").toString))
+                                } catch {
+                                    case e: ServerException =>
+                                        sendNack(e.getMessage);
+                                }
                             } else {
                                 sendNack("Invalid game.movepromote command");
                             }
                         case Elem(_, "resign", _, _) =>
                                 game.resign(this)
                         case Elem(_, "drawask", _, _) =>
-                            // TODO
+                                game.drawAsk(this);
                         case Elem(_, "drawaccept", _, _) =>
-                            // TODO
+                                game.drawAccept(this);
                         case Elem(_, "drawdecline", _, _) =>
-                            // TODO
+                                game.drawDecline(this);
                         case Elem(_, "timers", _, _) =>
-                            // TODO
+                                game.timers;
                         case _ =>
                             sendNack("Unknown game command");
                     }
