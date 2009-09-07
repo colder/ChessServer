@@ -1,23 +1,106 @@
-CLIENT -> SERVER
-<auth><login username=".." challenge=".." /></auth>
-<auth><logout /></auth>
-<games><create timers=".." /></games>
-<games><join host=".." /></games>
-<games><list /></games>
+==== Client States ====
+ 1) Init:       When logged out
+ 2) Logged:     When logged to the server but not playing
+ 3) Playing:    When logged and playing a chess game
 
-SERVER -> CLIENT
-<ack />
-<nack msg=".." />
-<timers white=".." black=".."/>
-<games><game timers="" opponent="" />..</games>
-<game><joined player=".." /></game>
 
-CLIENT <-> SERVER
+==== Arguments types ====
+username: String representing a username uniquely identifying a student. Each student
+          can only be simultaneously logged once on the server.
+
+challenge: a 52 chars long hex representation of a sha1() hash composed of the actual
+           password and the salt provided by the server.
+
+msg: A plain string explaining why the nack occured
+
+white,
+black,
+timers: The number of seconds in the clocks
+
+from,
+to: chess positions in algebraid notation (e.g. b4)
+
+promotion: a capital letter indicating the piece type
+           (R: rook, N: Knight, Q: queen, B: Bishop)
+
+salt: a string generated randomly for each server connections
+
+==== Server Commands ====
+
+=== Status: Init ===
+command:     <auth><login username=".." challenge=".." /></auth>
+reply:       <ack /> / <nack msg=".." />
+status:      Init => Logged
+description: challenge is sha1(password+salt). salt is transmitted by the server
+             within the <hello> command
+
+
+=== Status: Logged ===
+command:    <auth><logout /></auth>
+reply:      <ack /> / <nack msg=".." />
+status:     Logged => Init
+
+command:    <games><create timers=".." /></games>
+reply:      <ack /> / <nack msg=".." />
+status:     Logged => Playing
+
+command:    <games><join username=".." /></games>
+reply:      <ack /> / <nack msg=".." />
+status:     Logged => Playing
+comment:    The server will then send a <game><joined username=".." /></game> to the host
+
+command:    <games><list /></games>
+reply:      <games><game username=".." />..</games>
+status:
+
+=== Status: Playing ===
+command:    <game><timers /></game>
+out:        <game><timers white=".." black=".." /></game>
+
+command:    <game><move from=".." to=".."/></game>
+reply:      <ack /> / <nack msg=".." />
+
+command:    <game><movepromote from=".." to=".." promotion=".."/></game>
+reply:      <ack /> / <nack msg=".." />
+
+command:    <game><drawask /></game>
+reply:      <ack /> / <nack msg=".." />
+comment:    If a draw can be requested (not enought material for checkmate, 50 moves
+            rules or 3 similar conditions) the draw will be accepted without asking
+            the opponent.
+
+command:    <game><drawaccept /></game>
+reply:      <ack /> / <nack msg=".." />
+comment:    You can only accept a draw immediately after recieving a draw request
+
+command:    <game><drawdecline /></game>
+reply:      <ack /> / <nack msg=".." />
+comment:    You can only decline a draw immediately after recieving a draw request
+
+command:    <game><resign /></game>
+reply:      <ack /> / <nack msg=".." />
+
+
+==== Replies received from the server ====
+
+=== On connection: ===
+<hello salt=".." />
+
+=== When hosting a game: ===
+When you host, you'll receive a notification once the opponent joins your game,
+then game will then automatically start.
+
+<game><joined username=".." /></game>
+
+=== When playing a game: ===
+You'll receive a notification of the opponents moves and actions
+
 <game><move from=".." to=".."/></game>
 <game><movepromote from=".." to=".." promotion=".."/></game>
 <game><drawask /></game>
 <game><drawaccept /></game>
 <game><drawdecline /></game>
 <game><resign /></game>
-<game><timers /></game>
+
+=== When sombody writes a message to you ===
 <chat><msg>..</msg></chat>
