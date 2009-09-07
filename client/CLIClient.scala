@@ -11,7 +11,7 @@ class CLIClient {
     type Highlights = Map[Position, String]
 
     var game = new Game(20)
-    var loginSeed = ""
+    var loginSalt = ""
 
     def display: Unit = display(Map[Position, String]());
 
@@ -108,8 +108,7 @@ class CLIClient {
                             println("Error: "+x);
                     }
                 case Login(user, pass) =>
-                    val passwordHashed = server.Hash.sha1(pass+loginSeed);
-                    println("Hasing "+pass+" with "+loginSeed+" => "+passwordHashed);
+                    val passwordHashed = server.Hash.sha1(pass+loginSalt);
                     out.println(<auth><login username={ user } challenge={ passwordHashed } /></auth>);
                     isNack match {
                         case None =>
@@ -117,8 +116,8 @@ class CLIClient {
                         case Some(x) =>
                             println("Error: "+x);
                     }
-                case GamesJoin(host) =>
-                    out.println(<games><join host={ host } /></games>);
+                case GamesJoin(username) =>
+                    out.println(<games><join username={ username } /></games>);
                     isNack match {
                         case None =>
                             game = new Game(20).start
@@ -208,8 +207,7 @@ class CLIClient {
 
         XML.loadString(in.readLine) match {
             case Elem(_, "hello", attr, _) =>
-                println("Hello, Seed is "+attr("seed"))
-                loginSeed = attr("seed").toString
+                loginSalt = attr("salt").toString
             case x =>
                 println(x)
         }

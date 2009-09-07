@@ -14,7 +14,7 @@ case class ServerGame(val host: ServerClient, val ts: Long) {
         case None =>
             opponent = Some(player)
             game = game.start
-            dispatch(player, <game><joined player={ player.username } /></game>.toString)
+            dispatch(player, <game><joined username={ player.username } /></game>.toString)
     }
 
     def dispatch(player: ServerClient, msg: String) = {

@@ -21,14 +21,14 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
     private val in = new BufferedReader(new InputStreamReader(sock.getInputStream()))
     private val out =  new PrintWriter(new OutputStreamWriter(sock.getOutputStream()))
 
-    val seed: String = {
+    val salt: String = {
         UUID.randomUUID.toString
     }
 
     override def run = {
         println("Client connected!");
 
-        send(<hello seed={ seed } />)
+        send(<hello salt={ salt } />)
 
         var continue = true;
         while (continue) {
@@ -63,7 +63,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                     case Elem(_, "login", attr, _) =>
                         if (attr.get("challenge") != None && attr.get("username") != None) {
                             if (status == Annonymous) {
-                                if (server.auth(attr("username").toString, attr("challenge").toString, seed)) {
+                                if (server.auth(attr("username").toString, attr("challenge").toString, salt)) {
                                     status = Logged
                                     username = attr("username").toString
                                     sendAck
@@ -106,9 +106,9 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                                 sendNack("Invalid games.create command");
                             }
                         case Elem(_, "join", attr, _) =>
-                            if (attr.get("host") != None) {
+                            if (attr.get("username") != None) {
                                 try {
-                                    _game = Some(server.join(this, attr("host").toString))
+                                    _game = Some(server.join(this, attr("username").toString))
                                     status = Playing
                                     sendAck
                                 } catch {
@@ -119,7 +119,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                                 sendNack("Invalid games.create command");
                             }
                         case Elem(_, "list", attr, _) =>
-                            send("<games>"+{ server.games.values.map { g => "<game host=\""+g.host.username+"\" timers=\""+g.ts+"\" />" }.mkString }+"</games>")
+                            send("<games>"+{ server.games.values.map { g => "<game username=\""+g.host.username+"\" timers=\""+g.ts+"\" />" }.mkString }+"</games>")
 
                         case _ =>
                             sendNack("Unknown games command");
