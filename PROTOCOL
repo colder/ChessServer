@@ -1,5 +1,5 @@
 CLIENT -> SERVER
-<auth><login username=".." password=".." /></auth>
+<auth><login username=".." challenge=".." /></auth>
 <auth><logout /></auth>
 <games><create timers=".." /></games>
 <games><join host=".." /></games>
@@ -10,6 +10,7 @@ SERVER -> CLIENT
 <nack msg=".." />
 <timers white=".." black=".."/>
 <games><game timers="" opponent="" />..</games>
+<game><joined player=".." /></game>
 
 CLIENT <-> SERVER
 <game><move from=".." to=".."/></game>

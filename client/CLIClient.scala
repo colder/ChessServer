@@ -13,17 +13,17 @@ class CLIClient {
     var game = new Game(20)
     var loginSeed = ""
 
-    def draw: Unit = draw(Map[Position, String]());
+    def display: Unit = display(Map[Position, String]());
 
-    def draw(highlights: Iterable[Position]): Unit = draw(highlights, Console.YELLOW_B);
+    def display(highlights: Iterable[Position]): Unit = display(highlights, Console.YELLOW_B);
 
-    def draw(highlights: Iterable[Position], color: String): Unit = {
+    def display(highlights: Iterable[Position], color: String): Unit = {
         //val m = new Highlights()
         //m ++= (highlights map {(_, color)})
-        draw(Map[Position, String]()++(highlights map {(_, color)}));
+        display(Map[Position, String]()++(highlights map {(_, color)}));
     }
 
-    def draw(highlights: Highlights): Unit = {
+    def display(highlights: Highlights): Unit = {
         def line = println("     +-----+-----+-----+-----+-----+-----+-----+------")
 
         println
@@ -70,7 +70,6 @@ class CLIClient {
 
     def start() = {
         var continue = true;
-
         val sock = new Socket("localhost", 12345);
         val out = new PrintWriter(sock.getOutputStream(), true);
         val in = new BufferedReader(new InputStreamReader(sock.getInputStream()));
@@ -88,6 +87,125 @@ class CLIClient {
                     }
             }
         }
+
+        def executeCommand(cmd: Cmd) = {
+            cmd match {
+                case GamesList =>
+                    out.println(<games><list /></games>);
+                    val reply = XML.loadString(in.readLine)
+                    reply match {
+                        case Elem(_, "nack", attr, _) =>
+                            println("Error: "+attr("msg"))
+                        case _ =>
+                            println(reply)
+                    }
+                case GamesCreate(timers) =>
+                    out.println(<games><create timers={ timers.toString } /></games>);
+                    isNack match {
+                        case None =>
+                            game = new Game(timers)
+                        case Some(x) =>
+                            println("Error: "+x);
+                    }
+                case Login(user, pass) =>
+                    val passwordHashed = server.Hash.sha1(pass+loginSeed);
+                    println("Hasing "+pass+" with "+loginSeed+" => "+passwordHashed);
+                    out.println(<auth><login username={ user } challenge={ passwordHashed } /></auth>);
+                    isNack match {
+                        case None =>
+                            println("Logged On!");
+                        case Some(x) =>
+                            println("Error: "+x);
+                    }
+                case GamesJoin(host) =>
+                    out.println(<games><join host={ host } /></games>);
+                    isNack match {
+                        case None =>
+                            game = new Game(20).start
+                            display
+                        case Some(x) =>
+                            println("Error: "+x);
+                    }
+                case MovePromote(from, to, typeTo) =>
+                    out.println(<game><move from={ from.algNotation } to={ to.algNotation } promotion={ typeTo.ab } /></game>);
+                    isNack match {
+                        case None =>
+                            game = game.moveAndPromote(from, to, typeTo)
+                        case Some(x) =>
+                            println("Error: "+x);
+                    }
+                case Timers =>
+                    out.println(<game><timers /></game>);
+                    val reply = XML.loadString(in.readLine)
+                    println(reply)
+                case Leave =>
+                    out.println(<game><leave /></game>);
+                    isNack match {
+                        case None =>
+                            if (game.status == GamePlaying) {
+                                game = game.resign
+                            }
+                        case Some(x) =>
+                            println("Error: "+x);
+                    }
+                case Draw =>
+                    out.println(<game><drawask /></game>);
+                    isNack match {
+                        case None =>
+                            game = game.drawAsk
+                        case Some(x) =>
+                            println("Error: "+x);
+                    }
+                case DrawAccept =>
+                    out.println(<game><drawaccept /></game>);
+                    isNack match {
+                        case None =>
+                            game = game.drawAccept
+                        case Some(x) =>
+                            println("Error: "+x);
+                    }
+                case DrawDecline =>
+                    out.println(<game><drawdecline /></game>);
+                    isNack match {
+                        case None =>
+                            game = game.drawDecline
+                        case Some(x) =>
+                            println("Error: "+x);
+                    }
+                case Logout =>
+                    out.println(<auth><logout /></auth>);
+                    isNack match {
+                        case None =>
+                            println("logged out!");
+                        case Some(x) =>
+                            println("Error: "+x);
+                    }
+                case Move(from, to) =>
+                    out.println(<game><move from={ from.algNotation } to={ to.algNotation } /></game>);
+                    isNack match {
+                        case None =>
+                            game = game.move(from, to)
+                        case Some(x) =>
+                            println("Error: "+x);
+                    }
+                case Display =>
+                    display
+                case Noop =>
+                case AnalyzeAll =>
+                    display(game.board.slots.values.filter{ _.color == game.turn }.map{ game.board.movesOptionsCheckKingSafety(_) }.reduceLeft{ (a,b) => a ++ b}, Console.WHITE_B);
+                case Analyze(pos) =>
+                    game.board.pieceAt(pos) match {
+                        case Some(p) => display(game.board.movesOptionsCheckKingSafety(p), Console.WHITE_B);
+                        case None => println("< Error: Can't find any piece at pos "+pos);
+                    }
+                case Quit => 
+                    println("< Bye.")
+                    out.println(<quit />);
+                    continue = false
+                case Unknown(str) => println("< \""+str+"\"?");
+            }
+        }
+
         XML.loadString(in.readLine) match {
             case Elem(_, "hello", attr, _) =>
                 println("Hello, Seed is "+attr("seed"))
@@ -96,105 +214,71 @@ class CLIClient {
                 println(x)
         }
 
-        draw
+
         while(continue) {
             try {
+                // Is there anything on the line?
+                while (in.ready) {
+                    val cmd = in.readLine
+                    println("(<) "+cmd);
+                    XML.loadString(cmd) match {
+                        case <game>{ c }</game> =>
+                            c match {
+                                case Elem(_, "leave", _, _) =>
+                                    println("I won!")
+                                case Elem(_, "move", attr, _) =>
+                                    if (attr.get("from") != None && attr.get("to") != None) {
+                                        game = game.move(
+                                                    new Position(attr("from").toString),
+                                                    new Position(attr("to").toString))
+                                    } else {
+                                        println("woops!")
+                                    }
+                                case Elem(_, "movepromote", attr, _) =>
+                                    def parsePromotion(str: String): PieceType = str.toUpperCase match {
+                                        case "Q" => Queen
+                                        case "R" => Rook
+                                        case "N" => Knight
+                                        case "B" => Bishop
+                                        case _ =>
+                                            throw new RuntimeException("Invalid promotion type");
+                                    }
+                                    if (attr.get("from") != None && attr.get("to") != None && attr.get("promotion") != None) {
+                                        try {
+                                            game = game.moveAndPromote(
+                                                                    new Position(attr("from").toString),
+                                                                    new Position(attr("to").toString),
+                                                                    parsePromotion(attr("promotion").toString))
+                                        } catch {
+                                            case e: RuntimeException=>
+                                                println("woops!")
+                                        }
+                                    } else {
+                                        println("Invalid game.movepromote command");
+                                    }
+                                case Elem(_, "resign", _, _) =>
+                                        game = game.resign
+                                case Elem(_, "drawask", _, _) =>
+                                        game = game.drawAsk
+                                case Elem(_, "drawaccept", _, _) =>
+                                        game = game.drawAccept
+                                case Elem(_, "drawdecline", _, _) =>
+                                        game = game.drawDecline
+                                case Elem(_, "joined", _, _) =>
+                                        game = game.start
+                                        display
+                                case x =>
+                                    println("ignoring: "+x)
+                            }
+
+                            case x =>
+                                println("ignoring: "+x)
+                    }
+                }
                 print("> ")
                 val cmd = parse(Console.readLine)
 
-                cmd match {
-                    case GamesList =>
-                        out.println(<games><list /></games>);
-                        val reply = XML.loadString(in.readLine)
-                        reply match {
-                            case Elem(_, "nack", attr, _) =>
-                                println("Error: "+attr("msg"))
-                            case _ =>
-                                println(reply)
-                        }
-                    case GamesCreate(timers) =>
-                        out.println(<games><create timers="{ timers }" /></games>);
-                        isNack match {
-                            case None =>
-                                game = new Game(timers)
-                            case Some(x) =>
-                                println("Error: "+x);
-                        }
-                    case Login(user, pass) =>
-                        val passwordHashed = server.Hash.sha1(pass+loginSeed);
-                        println("Hasing "+pass+" with "+loginSeed+" => "+passwordHashed);
-                        out.println(<auth><login username={ user } challenge={ passwordHashed } /></auth>);
-                        isNack match {
-                            case None =>
-                                println("Logged On!");
-                            case Some(x) =>
-                                println("Error: "+x);
-                        }
-                    case GamesJoin(host) =>
-                        out.println(<games><join host="{ host }" /></games>);
-                        isNack match {
-                            case None =>
-                                game = new Game(20)
-                            case Some(x) =>
-                                println("Error: "+x);
-                        }
-                    case MovePromote(from, to, typeTo) =>
-                        out.println(<game><move from="{ from.algNotation }" to="{ to.algNotation }" promotion="{ typeTo.ab }" /></game>);
-                        isNack match {
-                            case None =>
-                                game.moveAndPromote(from, to, typeTo)
-                            case Some(x) =>
-                                println("Error: "+x);
-                        }
-                    case Timers =>
-                        out.println(<game><timers /></game>);
-                        val reply = XML.loadString(in.readLine)
-                        println(reply)
-                    case Draw =>
-                        out.println(<game><drawask /></game>);
-                        isNack match {
-                            case None =>
-                                game.drawAsk
-                            case Some(x) =>
-                                println("Error: "+x);
-                        }
-                    case DrawAccept =>
-                        out.println(<game><drawaccept /></game>);
-                        isNack match {
-                            case None =>
-                                game.drawAccept
-                            case Some(x) =>
-                                println("Error: "+x);
-                        }
-                    case DrawDecline =>
-                        out.println(<game><drawdecline /></game>);
-                        isNack match {
-                            case None =>
-                                game.drawDecline
-                            case Some(x) =>
-                                println("Error: "+x);
-                        }
-                    case Move(from, to) =>
-                        out.println(<game><move from={ from.algNotation } to={ to.algNotation } /></game>);
-                        isNack match {
-                            case None =>
-                                game.move(from, to)
-                            case Some(x) =>
-                                println("Error: "+x);
-                        }
-                    case AnalyzeAll =>
-                        draw(game.board.slots.values.filter{ _.color == game.turn }.map{ game.board.movesOptionsCheckKingSafety(_) }.reduceLeft{ (a,b) => a ++ b}, Console.WHITE_B);
-                    case Analyze(pos) =>
-                        game.board.pieceAt(pos) match {
-                            case Some(p) => draw(game.board.movesOptionsCheckKingSafety(p), Console.WHITE_B);
-                            case None => println("< Error: Can't find any piece at pos "+pos);
-                        }
-                    case Quit => 
-                        println("< Bye.")
-                        out.println(<quit />);
-                        continue = false
-                    case Unknown(str) => println("< \""+str+"\"?");
-                }
+                executeCommand(cmd)
 
                 game.status match {
                     case _:GameEnded =>
@@ -210,6 +294,7 @@ class CLIClient {
                     e.printStackTrace
             }
         }
+
     }
 
     abstract class Cmd
@@ -219,11 +304,15 @@ class CLIClient {
     object AnalyzeAll extends Cmd
     case class Unknown(str: String) extends Cmd
     object Quit extends Cmd
+    object Display extends Cmd
     object Draw extends Cmd
     object DrawAccept extends Cmd
     object DrawDecline extends Cmd
     object Timers extends Cmd
+    object Leave extends Cmd
+    object Logout extends Cmd
     object GamesList extends Cmd
+    object Noop extends Cmd
     case class GamesJoin(host: String) extends Cmd
     case class GamesCreate(timers: Int) extends Cmd
     case class Login(username: String, password: String) extends Cmd
@@ -239,13 +328,18 @@ class CLIClient {
                 case "gc" :: t ::  Nil => GamesCreate(t.toInt)
                 case "gj" :: host ::  Nil => GamesJoin(host)
                 case "q" :: Nil => Quit
+                case "di" :: Nil => Display
                 case "d" :: Nil => Draw
                 case "da" :: Nil => DrawAccept
                 case "dd" :: Nil => DrawDecline
                 case "t" :: Nil => Timers
-                case "l" :: username :: password :: Nil => Login(username, password)
+                case "login" :: username :: password :: Nil => Login(username, password)
+                case "leave" :: Nil => Leave
+                case "logout" :: Nil => Logout
                 case "quit" :: Nil => Quit
                 case "exit" :: Nil => Quit
+                case "nop" :: Nil => Noop
+                case "noop" :: Nil => Noop
                 case _ => Unknown(str)
             }
         } catch {

@@ -1,9 +1,9 @@
 package ChessServer.server
 
-case class ServerGame(val host: ServerClient, val timers: Long) {
+case class ServerGame(val host: ServerClient, val ts: Long) {
     import logic._
 
-    var game = new Game(timers)
+    var game = new Game(ts)
     var opponent: Option[ServerClient] = None
 
     def started = opponent != None
@@ -14,10 +14,10 @@ case class ServerGame(val host: ServerClient, val timers: Long) {
         case None =>
             opponent = Some(player)
             game = game.start
+            dispatch(player, <game><joined player={ player.username } /></game>.toString)
     }
 
     def dispatch(player: ServerClient, msg: String) = {
-        player.sendAck
         // transmit the message to the other player
         if (player == host) {
             opponent match {
@@ -33,10 +33,15 @@ case class ServerGame(val host: ServerClient, val timers: Long) {
         try {
             checkGameConditions(player)
             action
+            player.sendAck
             dispatch(player, dispatchMsg.toString)
         } catch {
             case e => player.sendNack(e.getMessage);
         }
+    }
+
+    def timers(player: ServerClient) = {
+        player.send(<game><timers white={ game.times._1.toString } black={ game.times._2.toString } /></game>)
     }
 
     def move(player: ServerClient, from: Position, to: Position) =
@@ -49,13 +54,13 @@ case class ServerGame(val host: ServerClient, val timers: Long) {
         op(player, game = game.resign, <game><resign /></game>)
 
     def drawAsk(player: ServerClient) =
-        op(player, game = game.drawAsk, <game><drawAsk /></game>)
+        op(player, game = game.drawAsk, <game><drawask /></game>)
 
     def drawAccept(player: ServerClient) =
-        op(player, game = game.drawAccept, <game><drawAccept /></game>)
+        op(player, game = game.drawAccept, <game><drawaccept /></game>)
 
     def drawDecline(player: ServerClient) =
-        op(player, game = game.drawDecline, <game><drawDecline /></game>)
+        op(player, game = game.drawDecline, <game><drawdecline /></game>)
 
 
     def checkGameConditions(player: ServerClient) = {
