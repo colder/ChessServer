@@ -41,7 +41,7 @@ case class ServerGame(val host: ServerClient, val ts: Long) {
     }
 
     def timers(player: ServerClient) = {
-        player.send(<game><timers white={ game.times._1.toString } black={ game.times._2.toString } /></game>)
+        player.send(<game><timers white={ game.timers._1.toString } black={ game.timers._2.toString } /></game>)
     }
 
     def move(player: ServerClient, from: Position, to: Position) =
