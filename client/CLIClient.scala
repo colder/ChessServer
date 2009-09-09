@@ -11,6 +11,8 @@ class CLIClient {
     type Highlights = Map[Position, String]
 
     var game = new Game(20)
+    var playingTeam: ChessTeam = White
+
     var loginSalt = ""
 
     def display: Unit = display(Map[Position, String]());
@@ -104,6 +106,7 @@ class CLIClient {
                     isNack match {
                         case None =>
                             game = new Game(timers)
+                            playingTeam = White
                         case Some(x) =>
                             println("Error: "+x);
                     }
@@ -121,6 +124,7 @@ class CLIClient {
                     isNack match {
                         case None =>
                             game = new Game(20).start
+                            playingTeam = Black
                             display
                         case Some(x) =>
                             println("Error: "+x);
@@ -141,7 +145,7 @@ class CLIClient {
                     out.println(<game><resign /></game>);
                     isNack match {
                         case None =>
-                            game = game.resign
+                            game = game.resign(playingTeam)
                         case Some(x) =>
                             println("Error: "+x);
                     }
@@ -251,7 +255,7 @@ class CLIClient {
                                         println("Invalid game.movepromote command");
                                     }
                                 case Elem(_, "resign", _, _) =>
-                                        game = game.resign
+                                        game = game.resign(if (playingTeam == White) Black else White)
                                 case Elem(_, "drawask", _, _) =>
                                         game = game.drawAsk
                                 case Elem(_, "drawaccept", _, _) =>

@@ -10,9 +10,10 @@ case object GameInit extends GameStatus;
 case object GamePlaying     extends GameRunning;
 case object GameDrawRequest extends GameRunning;
 
-case object GameDraw     extends GameEnded;
-case object GameWinBlack extends GameEnded;
-case object GameWinWhite extends GameEnded;
+case object GameCancelled extends GameEnded;
+case object GameDraw      extends GameEnded;
+case object GameWinBlack  extends GameEnded;
+case object GameWinWhite  extends GameEnded;
 
 
 /* immutable */
@@ -147,14 +148,17 @@ case class Game(
         }
     }
 
-    def resign: Game = if (status == GamePlaying) {
-        if (turn == White) {
-            setStatus(GameWinBlack).nextTurn
-        } else {
-            setStatus(GameWinWhite).nextTurn
-        }
-    } else {
-        throw GameException("Can't resign when not playing!");
+    def resign(loser: ChessTeam): Game = status match {
+        case _: GameRunning =>
+            if (loser == White) {
+                setStatus(GameWinBlack).nextTurn
+            } else {
+                setStatus(GameWinWhite).nextTurn
+            }
+        case GameInit =>
+            setStatus(GameCancelled).nextTurn
+        case _ =>
+            throw GameException("Can't resign when not playing!");
     }
 
     def drawAccept: Game = if (status == GameDrawRequest) {

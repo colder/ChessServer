@@ -57,8 +57,18 @@ case class ServerGame(val server: Server, val host: ServerClient, val ts: Long) 
         op(player, game = game.move(from, to), <game><move from={ from.algNotation } to={ to.algNotation } promotion={ promotion.ab } /></game>)
 
     def resign(player: ServerClient) = {
-        if (op(player, game = game.resign, <game><resign /></game>)) {
+        val loser = if (player == host) White else Black
+        try {
+            game.resign(loser)
+            player.sendAck
+            opponent match {
+                case Some(op) =>
+                    dispatch(player, <game><resign /></game>.toString)
+                case None =>
+            }
             end
+        } catch {
+            case e => player.sendNack(e.getMessage)
         }
     }
 
