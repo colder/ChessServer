@@ -6,8 +6,13 @@ import scala.collection.mutable.HashMap
 class Server(port: Int) {
     val serverSocket = new ServerSocket(port)
 
-    var games = new HashMap[String, ServerGame]()
+    /* Stores every logged users: username->client */
+    var users   = new HashMap[String, ServerClient]()
 
+    /* Stores every hosts: username->game */
+    var games   = new HashMap[String, ServerGame]()
+
+    /* Stores every players: username->game */
     var players = new HashMap[String, ServerGame]()
 
     def start = {
@@ -15,12 +20,17 @@ class Server(port: Int) {
         while(true) ServerClient(this, serverSocket.accept())
     }
 
-    def auth(username: String, challenge: String, seed: String): Boolean = {
+    def login(client: ServerClient, username: String, challenge: String, seed: String): Boolean = {
         if (Hash.sha1("plop"+seed) equals challenge) {
+            users(username) = client
             true
         } else {
             false
         }
+    }
+
+    def logout(client: ServerClient) = {
+        users -= client.username
     }
 
     def create(client: ServerClient, timers: Long): ServerGame = {
@@ -62,6 +72,7 @@ class Server(port: Int) {
             case None =>
                 // Leaving normally
         }
+        users -= client.username
     }
 
     def gameEnd(servergame: ServerGame) = {

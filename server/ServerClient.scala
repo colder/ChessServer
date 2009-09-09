@@ -70,7 +70,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                     case Elem(_, "login", attr, _) =>
                         if (attr.get("challenge") != None && attr.get("username") != None) {
                             if (status == Annonymous) {
-                                if (server.auth(attr("username").toString, attr("challenge").toString, salt)) {
+                                if (server.login(this, attr("username").toString, attr("challenge").toString, salt)) {
                                     status = Logged
                                     username = attr("username").toString
                                     sendAck
@@ -86,6 +86,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                     case Elem(_, "logout", attr, _) =>
                         if (status == Logged) {
                             status = Annonymous
+                            server.logout(this)
                             sendAck
                         } else if (status == Playing) {
                             sendNack("Leave your game first!");
