@@ -127,7 +127,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                                 sendNack("Invalid games.create command");
                             }
                         case Elem(_, "list", attr, _) =>
-                            send("<games>"+{ server.games.values.map { g => "<game username=\""+g.host.username+"\" timers=\""+g.ts+"\" />" }.mkString }+"</games>")
+                            send("<games>"+{ server.freeGames.map { g => "<game username=\""+g.host.username+"\" timers=\""+g.ts+"\" />" }.mkString }+"</games>")
 
                         case _ =>
                             sendNack("Unknown games command");

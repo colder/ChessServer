@@ -90,6 +90,11 @@ class Server(port: Int) {
         }
     }
 
+    def freeGames = {
+        import logic.GameInit
+        games.values.filter{ g => g.game.status == GameInit }
+    }
+
 }
 
 case class ServerException(msg: String) extends RuntimeException(msg)
