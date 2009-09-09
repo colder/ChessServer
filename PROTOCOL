@@ -80,7 +80,6 @@ comment:    You can only decline a draw immediately after recieving a draw reque
 command:    <game><resign /></game>
 reply:      <ack /> / <nack msg=".." />
 
-
 ==== Replies received from the server ====
 
 === On connection: ===
@@ -102,5 +101,13 @@ You'll receive a notification of the opponents moves and actions
 <game><drawdecline /></game>
 <game><resign /></game>
 
-=== When sombody writes a message to you ===
-<chat><msg>..</msg></chat>
+==== Chatting ====
+You can chat when logged or playing.
+
+command:    <chat><msg username="..">..</msg></chat>
+reply:      <ack /> / <nack msg=".." />
+
+Received from server when somebody writes to you:
+
+    <chat><msg username="..">..</msg></chat>
+

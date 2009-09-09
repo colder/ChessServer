@@ -137,13 +137,11 @@ class CLIClient {
                     out.println(<game><timers /></game>);
                     val reply = XML.loadString(in.readLine)
                     println(reply)
-                case Leave =>
-                    out.println(<game><leave /></game>);
+                case Resign =>
+                    out.println(<game><resign /></game>);
                     isNack match {
                         case None =>
-                            if (game.status == GamePlaying) {
-                                game = game.resign
-                            }
+                            game = game.resign
                         case Some(x) =>
                             println("Error: "+x);
                     }
@@ -222,8 +220,6 @@ class CLIClient {
                     XML.loadString(cmd) match {
                         case <game>{ c }</game> =>
                             c match {
-                                case Elem(_, "leave", _, _) =>
-                                    println("I won!")
                                 case Elem(_, "move", attr, _) =>
                                     if (attr.get("from") != None && attr.get("to") != None) {
                                         game = game.move(
@@ -281,7 +277,7 @@ class CLIClient {
                 game.status match {
                     case _:GameEnded =>
                         println("GAME ended: "+game.status);
-                        continue = false;
+                        game = new Game(20);
                     case _ =>
                 }
             } catch {
@@ -307,7 +303,7 @@ class CLIClient {
     object DrawAccept extends Cmd
     object DrawDecline extends Cmd
     object Timers extends Cmd
-    object Leave extends Cmd
+    object Resign extends Cmd
     object Logout extends Cmd
     object GamesList extends Cmd
     object Noop extends Cmd
@@ -332,7 +328,7 @@ class CLIClient {
                 case "dd" :: Nil => DrawDecline
                 case "t" :: Nil => Timers
                 case "login" :: username :: password :: Nil => Login(username, password)
-                case "leave" :: Nil => Leave
+                case "resign" :: Nil => Resign
                 case "logout" :: Nil => Logout
                 case "quit" :: Nil => Quit
                 case "exit" :: Nil => Quit

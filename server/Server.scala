@@ -8,6 +8,8 @@ class Server(port: Int) {
 
     var games = new HashMap[String, ServerGame]()
 
+    var players = new HashMap[String, ServerGame]()
+
     def start = {
         println("Listening to port "+port+"...");
         while(true) ServerClient(this, serverSocket.accept())
@@ -22,17 +24,18 @@ class Server(port: Int) {
     }
 
     def create(client: ServerClient, timers: Long): ServerGame = {
-        if (games contains client.username) {
+        if (players contains client.username) {
             throw ServerException("Already playing")
         } else {
-            val game = ServerGame(client, timers)
+            val game = ServerGame(this, client, timers)
             games(client.username) = game
+            players(client.username) = game
             game
         }
     }
 
     def join(client: ServerClient, host: String): ServerGame = {
-        if (games contains client.username) {
+        if (players contains client.username) {
             throw ServerException("Already playing")
         } else {
             games.get(host) match {
@@ -41,12 +44,38 @@ class Server(port: Int) {
                         throw ServerException("Game already started")
                     } else {
                         g.join(client)
+                        players(client.username) = g
                         g
                     }
 
                 case None =>
                     throw ServerException("Game not found")
             }
+        }
+    }
+
+    def leave(client: ServerClient) = {
+        players.get(client.username) match {
+            case Some(game) =>
+                // Leaving an unfinished game
+                game.resign(client)
+            case None =>
+                // Leaving normally
+        }
+    }
+
+    def gameEnd(servergame: ServerGame) = {
+        games -= servergame.host.username
+        players -= servergame.host.username
+
+        servergame.host.onGameEnd
+
+        servergame.opponent match {
+            case Some(sc) => {
+                sc.onGameEnd
+                players -= sc.username
+            }
+            case None =>
         }
     }
 

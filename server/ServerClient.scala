@@ -46,7 +46,14 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
             }
         }
 
+        server.leave(this)
+
         println("Client disconnected!");
+    }
+
+    def onGameEnd = {
+        status = Logged
+        _game = None
     }
 
     def userlog = if (status != Annonymous) "["+username+"] " else "[@] "
@@ -137,10 +144,6 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
             case <game>{ g }</game> =>
                 import logic._
                 g match {
-                    case Elem(_, "leave", _, _) if status == Playing =>
-                        game.resign(this)
-                        status = Logged
-                        sendAck
                     case Elem(_, "move", attr, _) if status == Playing =>
                         if (attr.get("from") != None && attr.get("to") != None) {
                             game.move(this,

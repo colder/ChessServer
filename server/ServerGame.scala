@@ -1,6 +1,6 @@
 package ChessServer.server
 
-case class ServerGame(val host: ServerClient, val ts: Long) {
+case class ServerGame(val server: Server, val host: ServerClient, val ts: Long) {
     import logic._
 
     var game = new Game(ts)
@@ -29,14 +29,20 @@ case class ServerGame(val host: ServerClient, val ts: Long) {
         }
     }
 
-    def op(player: ServerClient, action: => Unit, dispatchMsg: xml.Node) = {
+    def end = {
+        server.gameEnd(this);
+    }
+
+    def op(player: ServerClient, action: => Unit, dispatchMsg: xml.Node): Boolean = {
         try {
             checkGameConditions(player)
             action
             player.sendAck
             dispatch(player, dispatchMsg.toString)
+            true
         } catch {
-            case e => player.sendNack(e.getMessage);
+            case e => player.sendNack(e.getMessage)
+                      false
         }
     }
 
@@ -50,14 +56,19 @@ case class ServerGame(val host: ServerClient, val ts: Long) {
     def moveAndPromote(player: ServerClient, from: Position, to: Position, promotion: PieceType) =
         op(player, game = game.move(from, to), <game><move from={ from.algNotation } to={ to.algNotation } promotion={ promotion.ab } /></game>)
 
-    def resign(player: ServerClient) =
-        op(player, game = game.resign, <game><resign /></game>)
+    def resign(player: ServerClient) = {
+        if (op(player, game = game.resign, <game><resign /></game>)) {
+            end
+        }
+    }
 
     def drawAsk(player: ServerClient) =
         op(player, game = game.drawAsk, <game><drawask /></game>)
 
     def drawAccept(player: ServerClient) =
-        op(player, game = game.drawAccept, <game><drawaccept /></game>)
+        if (op(player, game = game.drawAccept, <game><drawaccept /></game>)) {
+            end
+        }
 
     def drawDecline(player: ServerClient) =
         op(player, game = game.drawDecline, <game><drawdecline /></game>)
