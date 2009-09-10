@@ -196,6 +196,23 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                     game.resign(this)
                 }
                 false
+            case <chat>{ a }</chat> =>
+                a match {
+                    case Elem(_, "msg", attr, _, data) =>
+                        if (attr.get("username") != None) {
+                            val username = attr("username").toString;
+                            server.users.get(username) match {
+                                case Some(u) if !(this.username equals username) =>
+                                    u.send(<chat><msg username={ this.username } >{ data.toString }</msg></chat>);
+                                    sendAck
+                                case Some(u) if this.username equals username =>
+                                    sendNack("Cannot send messages to yourself")
+                                case None =>
+                                    sendNack("Username \""+username+"\" not found")
+                            }
+                        }
+                }
+                true
             case _ =>
                 sendNack("woot?")
                 true

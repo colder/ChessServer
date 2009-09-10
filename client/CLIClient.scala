@@ -181,6 +181,14 @@ class CLIClient {
                         case Some(x) =>
                             println("Error: "+x);
                     }
+                case Msg(to, content) =>
+                    out.println(<chat><msg username={ to } >{ content }</msg></chat>);
+                    isNack match {
+                        case None =>
+                        case Some(x) =>
+                            println("Error: "+x);
+                    }
+
                 case Move(from, to) =>
                     out.println(<game><move from={ from.algNotation } to={ to.algNotation } /></game>);
                     isNack match {
@@ -311,15 +319,17 @@ class CLIClient {
     object Logout extends Cmd
     object GamesList extends Cmd
     object Noop extends Cmd
+    case class Msg(to: String, content:String) extends Cmd
     case class GamesJoin(host: String) extends Cmd
     case class GamesCreate(timers: Int) extends Cmd
     case class Login(username: String, password: String) extends Cmd
 
     def parse(str: String): Cmd = {
         try {
-            str.split(" +").toList match {
+            str.split(" ").toList match {
                 case "m"  :: pf :: pt :: Nil => Move(new Position(pf), new Position(pt))
                 case "mp" :: pf :: pt :: typ :: Nil => MovePromote(new Position(pf), new Position(pt), parseType(typ))
+                case "msg" :: to :: msg => Msg(to, msg.mkString(" "))
                 case "a" :: p :: Nil => Analyze(new Position(p))
                 case "aa" :: Nil => AnalyzeAll
                 case "gl" :: Nil => GamesList
