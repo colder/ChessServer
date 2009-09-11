@@ -85,26 +85,27 @@ reply:      <ack /> / <nack msg=".." />
 ==== Replies received from the server ====
 
 === On connection: ===
-<hello salt=".." />
+
+    <hello salt=".." />
 
 === When hosting a game: ===
 When you host, you'll receive a notification once the opponent joins your game,
 then game will then automatically start.
 
-<game><joined username=".." /></game>
+    <game><joined username=".." /></game>
 
 === When playing a game: ===
 You'll receive a notification of the opponents moves and actions
 
-<game><move from=".." to=".."/></game>
-<game><movepromote from=".." to=".." promotion=".."/></game>
-<game><drawask /></game>
-<game><drawaccept /></game>
-<game><drawdecline /></game>
-<game><resign /></game>
+    <game><move from=".." to=".."/></game>
+    <game><movepromote from=".." to=".." promotion=".."/></game>
+    <game><drawask /></game>
+    <game><drawdecline /></game>
 
-<game><end winner=".." /></game>
-<game><draw /></game>
+On game end:
+
+    <game><end winner=".." /></game>
+    <game><draw /></game>
 
 ==== Chatting ====
 You can chat when logged or playing.
