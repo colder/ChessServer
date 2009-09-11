@@ -1,6 +1,6 @@
 package ChessServer.server
 
-case class ServerGame(val server: Server, val host: ServerClient, val ts: Long) {
+class ServerGame(val server: Server, val host: ServerClient, val ts: Long) {
     import logic._
 
     var game = new Game(ts)
@@ -13,6 +13,7 @@ case class ServerGame(val server: Server, val host: ServerClient, val ts: Long) 
             throw ProtocolException("This game is already full")
         case None =>
             opponent = Some(player)
+            host.onJoin(this, player)
             game = game.start
             dispatch(player, <game><joined username={ player.username } /></game>.toString)
     }

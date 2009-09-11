@@ -8,15 +8,12 @@ import java.util.UUID
 abstract class ClientStatus;
 object Annonymous extends ClientStatus;
 object Logged extends ClientStatus;
-object Playing extends ClientStatus;
 
+import scala.collection.mutable.HashMap
 case class ServerClient(server: Server, sock: Socket) extends Thread {
     var status: ClientStatus = Annonymous
     var username: String = ""
-    var _game: Option[ServerGame] = None
-    def game: ServerGame = {
-        _game getOrElse (throw new ServerException("Invalid state, there should be a game at this point!"))
-    }
+    var games = new HashMap[String, ServerGame]()
 
     private val in = new BufferedReader(new InputStreamReader(sock.getInputStream()))
     private val out =  new PrintWriter(new OutputStreamWriter(sock.getOutputStream()))
@@ -51,12 +48,15 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
         println("Client disconnected!");
     }
 
-    def onGameEnd = {
-        status = Logged
-        _game = None
+    def onGameEnd(game: ServerGame) = {
+        //_game = None
     }
 
     def userlog = if (status != Annonymous) "["+username+"] " else "[@] "
+
+    def onJoin(game: ServerGame, player: ServerClient) = {
+        games(player.username) = game
+    }
 
     def parseLine(line: String): Boolean = {
         import scala.xml._
@@ -88,8 +88,6 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                             status = Annonymous
                             server.logout(this)
                             sendAck
-                        } else if (status == Playing) {
-                            sendNack("Leave your game first!");
                         }
                     case _ =>
                         sendNack("Unknown games command");
@@ -103,8 +101,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                         case Elem(_, "create", attr, _) =>
                             if (attr.get("timers") != None) {
                                 try {
-                                    _game = Some(server.create(this, attr("timers").toString.toLong))
-                                    status = Playing
+                                    server.create(this, attr("timers").toString.toLong)
                                     sendAck
                                 } catch {
                                     case se: ServerException =>
@@ -114,10 +111,10 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                                 sendNack("Invalid games.create command");
                             }
                         case Elem(_, "join", attr, _) =>
-                            if (attr.get("username") != None) {
+                            if (attr.get("username") != None && attr.get("timers") != None) {
                                 try {
-                                    _game = Some(server.join(this, attr("username").toString))
-                                    status = Playing
+                                    val g = server.join(this, attr("username").toString, attr("timers").toString.toLong)
+                                    games(g.host.username) = g
                                     sendAck
                                 } catch {
                                     case se: ServerException =>
@@ -142,10 +139,22 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                 }
                 true
 
-            case <game>{ g }</game> =>
+            case Elem(_, "game", attr, _, g) =>
+                val game = {
+                    if (attr.get("username") != None) {
+                        games.get(attr.get("username").toString) match {
+                            case Some(g) => g
+                            case _ =>
+                                throw new ServerException("Game not found!");
+                        }
+                    } else {
+                        throw new ServerException("Invalid game command, missing the username parameter");
+                    }
+                }
+
                 import logic._
                 g match {
-                    case Elem(_, "move", attr, _) if status == Playing =>
+                    case Elem(_, "move", attr, _) =>
                         if (attr.get("from") != None && attr.get("to") != None) {
                             game.move(this,
                                         new Position(attr("from").toString),
@@ -153,7 +162,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                         } else {
                             sendNack("Invalid game.move command");
                         }
-                    case Elem(_, "movepromote", attr, _) if status == Playing =>
+                    case Elem(_, "movepromote", attr, _) =>
                         def parsePromotion(str: String): PieceType = str.toUpperCase match {
                             case "Q" => Queen
                             case "R" => Rook
@@ -175,26 +184,24 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                         } else {
                             sendNack("Invalid game.movepromote command");
                         }
-                    case Elem(_, "resign", _, _) if status == Playing =>
+                    case Elem(_, "resign", _, _) =>
                             game.resign(this)
-                    case Elem(_, "drawask", _, _) if status == Playing =>
+                    case Elem(_, "drawask", _, _) =>
                             game.drawAsk(this);
-                    case Elem(_, "drawaccept", _, _) if status == Playing =>
+                    case Elem(_, "drawaccept", _, _) =>
                             game.drawAccept(this);
-                    case Elem(_, "drawdecline", _, _) if status == Playing =>
+                    case Elem(_, "drawdecline", _, _) =>
                             game.drawDecline(this);
-                    case Elem(_, "timers", _, _) if status == Playing =>
+                    case Elem(_, "timers", _, _) =>
                             game.timers(this);
-                    case _ if status == Playing =>
-                        sendNack("Unknown game command");
                     case _ =>
-                        sendNack("You need to be playing")
+                        sendNack("Unknown game command");
                 }
                 true
             case <quit /> =>
-                if (_game != None) {
-                    game.resign(this)
-                }
+                status = Annonymous
+                server.logout(this)
+                sendAck
                 false
             case <chat>{ a }</chat> =>
                 a match {
