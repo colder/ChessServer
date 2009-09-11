@@ -53,7 +53,7 @@ class Server(port: Int) {
     }
 
     def join(client: ServerClient, host: String, timers: Long): ServerGame = {
-        if (games.get((host, client.username)) != None) {
+        if (games.get((host, client.username)) != None || games.get((client.username, host)) != None) {
             throw ServerException("Already playing against "+host+"!")
         }
         if (host equals client.username) {
