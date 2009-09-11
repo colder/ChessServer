@@ -25,6 +25,9 @@ class Server(port: Int) {
 
     def login(client: ServerClient, username: String, challenge: String, seed: String): Boolean = {
         if (Hash.sha1("plop"+seed) equals challenge) {
+            if (users.get(username) != None) {
+                throw new ServerException("Login already in use");
+            }
             users(username) = client
             players(username) = new HashSet[ServerGame]()
             pendingGames(username) = new HashSet[ServerGame];
@@ -53,6 +56,9 @@ class Server(port: Int) {
         if (games.get((host, client.username)) != None) {
             throw ServerException("Already playing against "+host+"!")
         }
+        if (host equals client.username) {
+            throw ServerException("Can't join your own game!")
+        }
 
         pendingGames.get(host) match {
             case Some(gs) =>
@@ -61,6 +67,7 @@ class Server(port: Int) {
                             g.join(client)
 
                             games((host, client.username)) = g
+                            pendingGames(host) -= g;
                             players(client.username) += g
 
                             g
@@ -73,8 +80,10 @@ class Server(port: Int) {
     }
 
     def leave(client: ServerClient) = {
-        players(client.username).foreach { _.resign(client) }
-        logout(client)
+        if (client.status == Logged) {
+            players(client.username).foreach { _.resign(client) }
+            logout(client)
+        }
     }
 
     def gameEnd(servergame: ServerGame) = {
@@ -97,7 +106,7 @@ class Server(port: Int) {
         }
     }
 
-    def freeGames = {
+    def freeGames(client: ServerClient) = {
         pendingGames.values.map{_.toList}.reduceLeft{_:::_}
     }
 

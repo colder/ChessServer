@@ -58,7 +58,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
         games(player.username) = game
     }
 
-    def parseLine(line: String): Boolean = {
+    def parseLine(line: String): Boolean = try {
         import scala.xml._
 
         println("< "+userlog+line);
@@ -124,7 +124,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                                 sendNack("Invalid games.create command");
                             }
                         case Elem(_, "list", attr, _) =>
-                            send("<games>"+{ server.freeGames.map { g => "<game username=\""+g.host.username+"\" timers=\""+g.ts+"\" />" }.mkString }+"</games>")
+                            send("<games>"+{ server.freeGames(this).map { g => "<game username=\""+g.host.username+"\" timers=\""+g.ts+"\" />" }.mkString }+"</games>")
 
                         case _ =>
                             sendNack("Unknown games command");
@@ -142,9 +142,9 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
             case Elem(_, "game", attr, _, g) =>
                 val game = {
                     if (attr.get("username") != None) {
-                        games.get(attr.get("username").toString) match {
+                        games.get(attr("username").toString) match {
                             case Some(g) => g
-                            case _ =>
+                            case None =>
                                 throw new ServerException("Game not found!");
                         }
                     } else {
@@ -228,6 +228,8 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                 sendNack("woot?")
                 true
         }
+    } catch {
+        case e => sendNack(e.getMessage); true
     }
 
     def sendNack(msg: String) = send(<nack msg={ msg } />);

@@ -15,7 +15,7 @@ class ServerGame(val server: Server, val host: ServerClient, val ts: Long) {
             opponent = Some(player)
             host.onJoin(this, player)
             game = game.start
-            dispatch(player, <game><joined username={ player.username } /></game>.toString)
+            dispatch(player, <games><joined username={ player.username } timers={ ts.toString } /></games>.toString)
     }
 
     def dispatch(player: ServerClient, msg: String) = {
