@@ -55,12 +55,22 @@ case class ServerGame(val server: Server, val host: ServerClient, val ts: Long) 
         server.gameEnd(this);
     }
 
-    def op(player: ServerClient, action: => Unit, dispatchMsg: xml.Node): Boolean = {
+    def op(player: ServerClient, action: => Unit, dispatchMsg: xml.Node): Boolean =
+        op(player, action, dispatchMsg, true)
+
+    def op(player: ServerClient, action: => Unit, dispatchMsg: xml.Node, checkConditions: Boolean): Boolean = {
         try {
-            checkGameConditions(player)
+            if (checkConditions) checkGameConditions(player)
             action
             player.sendAck
-            dispatch(player, dispatchMsg.toString)
+
+            // Check the status of the game
+            game.status match {
+                case _ : GameEnded =>
+                    end
+                case _ =>
+                    dispatch(player, dispatchMsg.toString)
+            }
             true
         } catch {
             case e => player.sendNack(e.getMessage)
@@ -78,35 +88,17 @@ case class ServerGame(val server: Server, val host: ServerClient, val ts: Long) 
     def moveAndPromote(player: ServerClient, from: Position, to: Position, promotion: PieceType) =
         op(player, game = game.move(from, to), <game><move from={ from.algNotation } to={ to.algNotation } promotion={ promotion.ab } /></game>)
 
-    def resign(player: ServerClient) = {
-        val loser = if (player == host) White else Black
-        try {
-            game = game.resign(loser)
-            player.sendAck
-            end
-        } catch {
-            case e => player.sendNack(e.getMessage)
-        }
-    }
+    def resign(player: ServerClient) =
+        op(player, game = game.resign(if (player == host) White else Black), <game><ack /></game>, false) // ignore turn
 
     def drawAsk(player: ServerClient) =
-        op(player, game = game.drawAsk, <game><drawask /></game>)
+        op(player, game = game.drawAsk, <game><drawAsk /></game>)
 
     def drawAccept(player: ServerClient) =
-        try {
-            checkGameConditions(player)
-            game = game.drawAccept
-            player.sendAck
-            end
-            true
-        } catch {
-            case e => player.sendNack(e.getMessage)
-                      false
-        }
+        op(player, game = game.drawAccept, <game><ack /></game>)
 
     def drawDecline(player: ServerClient) =
         op(player, game = game.drawDecline, <game><drawdecline /></game>)
-
 
     def checkGameConditions(player: ServerClient) = {
         if (player == host && game.turn != White || player != host && game.turn != Black) {
