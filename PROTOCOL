@@ -46,10 +46,10 @@ command:    <games><create timers=".." /></games>
 reply:      <ack /> / <nack msg=".." />
 status:     Logged => Playing
 
-command:    <games><join username=".." /></games>
+command:    <games><join username=".." timers=".." /></games>
 reply:      <ack /> / <nack msg=".." />
 status:     Logged => Playing
-comment:    The server will then send a <game><joined username=".." /></game> to the host
+comment:    The server will then send a <game><joined username=".." timers=".." /></game> to the host
 
 command:    <games><list /></games>
 reply:      <games><game username=".." />..</games>
