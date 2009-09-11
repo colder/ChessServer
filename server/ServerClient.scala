@@ -198,19 +198,23 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                 false
             case <chat>{ a }</chat> =>
                 a match {
-                    case Elem(_, "msg", attr, _, data) =>
+                    case Elem(_, "msg", attr, _, data) if status != Annonymous=>
                         if (attr.get("username") != None) {
                             val username = attr("username").toString;
                             server.users.get(username) match {
                                 case Some(u) if !(this.username equals username) =>
                                     u.send(<chat><msg username={ this.username } >{ data.toString }</msg></chat>);
                                     sendAck
-                                case Some(u) if this.username equals username =>
+                                case Some(u) =>
                                     sendNack("Cannot send messages to yourself")
                                 case None =>
                                     sendNack("Username \""+username+"\" not found")
                             }
                         }
+                    case _ if status != Annonymous=>
+                        sendNack("Unknown game command");
+                    case _ =>
+                        sendNack("You need to be at least logged")
                 }
                 true
             case _ =>

@@ -30,6 +30,28 @@ case class ServerGame(val server: Server, val host: ServerClient, val ts: Long) 
     }
 
     def end = {
+        // dispatch the game ending status to both players
+        val msg: Option[xml.Node] = game.status match {
+            case GameWinBlack =>
+                Some(<game><end winner="black" /></game>)
+            case GameWinWhite =>
+                Some(<game><end winner="white" /></game>)
+            case GameDraw =>
+                Some(<game><draw /></game>)
+            case _ =>
+                None
+        }
+
+        msg match {
+            case Some(m) =>
+                host.send(m)
+                opponent match {
+                    case Some(op) => op.send(m)
+                    case None =>
+                }
+            case None =>
+        }
+
         server.gameEnd(this);
     }
 
@@ -59,13 +81,8 @@ case class ServerGame(val server: Server, val host: ServerClient, val ts: Long) 
     def resign(player: ServerClient) = {
         val loser = if (player == host) White else Black
         try {
-            game.resign(loser)
+            game = game.resign(loser)
             player.sendAck
-            opponent match {
-                case Some(op) =>
-                    dispatch(player, <game><resign /></game>.toString)
-                case None =>
-            }
             end
         } catch {
             case e => player.sendNack(e.getMessage)
@@ -76,8 +93,15 @@ case class ServerGame(val server: Server, val host: ServerClient, val ts: Long) 
         op(player, game = game.drawAsk, <game><drawask /></game>)
 
     def drawAccept(player: ServerClient) =
-        if (op(player, game = game.drawAccept, <game><drawaccept /></game>)) {
+        try {
+            checkGameConditions(player)
+            game = game.drawAccept
+            player.sendAck
             end
+            true
+        } catch {
+            case e => player.sendNack(e.getMessage)
+                      false
         }
 
     def drawDecline(player: ServerClient) =
