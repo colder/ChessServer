@@ -92,7 +92,7 @@ reply:      <ack /> / <nack msg=".." />
 When you host, you'll receive a notification once the opponent joins your game,
 then game will then automatically start.
 
-    <games><joined username=".." /></games>
+    <games><joined username=".." timers=".." /></games>
 
 === When playing a game: ===
 You'll receive a notification of the opponents moves and actions. [username] 
