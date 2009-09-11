@@ -56,30 +56,30 @@ reply:      <games><game username=".." />..</games>
 status:
 
 === Status: Playing ===
-command:    <game><timers /></game>
-out:        <game><timers white=".." black=".." /></game>
+command:    <game username=".."><timers /></game>
+out:        <game username=".."><timers white=".." black=".." /></game>
 
-command:    <game><move from=".." to=".."/></game>
+command:    <game username=".."><move from=".." to=".."/></game>
 reply:      <ack /> / <nack msg=".." />
 
-command:    <game><movepromote from=".." to=".." promotion=".."/></game>
+command:    <game username=".."><movepromote from=".." to=".." promotion=".."/></game>
 reply:      <ack /> / <nack msg=".." />
 
-command:    <game><drawask /></game>
+command:    <game username=".."><drawask /></game>
 reply:      <ack /> / <nack msg=".." />
 comment:    If a draw can be requested (not enought material for checkmate, 50 moves
             rules or 3 similar conditions) the draw will be accepted without asking
             the opponent.
 
-command:    <game><drawaccept /></game>
+command:    <game username=".."><drawaccept /></game>
 reply:      <ack /> / <nack msg=".." />
 comment:    You can only accept a draw immediately after recieving a draw request
 
-command:    <game><drawdecline /></game>
+command:    <game username=".."><drawdecline /></game>
 reply:      <ack /> / <nack msg=".." />
 comment:    You can only decline a draw immediately after recieving a draw request
 
-command:    <game><resign /></game>
+command:    <game username=".."><resign /></game>
 reply:      <ack /> / <nack msg=".." />
 
 ==== Replies received from the server ====
@@ -95,25 +95,26 @@ then game will then automatically start.
     <game><joined username=".." /></game>
 
 === When playing a game: ===
-You'll receive a notification of the opponents moves and actions
+You'll receive a notification of the opponents moves and actions. [username] 
+contains the opponent username.
 
-    <game><move from=".." to=".."/></game>
-    <game><movepromote from=".." to=".." promotion=".."/></game>
-    <game><drawask /></game>
-    <game><drawdecline /></game>
+    <game username=".."><move from=".." to=".."/></game>
+    <game username=".."><movepromote from=".." to=".." promotion=".."/></game>
+    <game username=".."><drawask /></game>
+    <game username=".."><drawdecline /></game>
 
 On game end:
 
-    <game><end winner=".." /></game>
-    <game><draw /></game>
+    <game username=".."><end winner=".." /></game>
+    <game username=".."><draw /></game>
 
 ==== Chatting ====
 You can chat when logged or playing.
 
-command:    <chat><msg username="..">..</msg></chat>
+command:    <chat username=".."><msg>..</msg></chat>
 reply:      <ack /> / <nack msg=".." />
 
 Received from server when somebody writes to you:
 
-    <chat><msg username="..">..</msg></chat>
+    <chat username=".."><msg>..</msg></chat>
 
