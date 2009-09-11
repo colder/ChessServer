@@ -96,7 +96,7 @@ case class Game(
                 setStatus(GameWinWhite)
             } else {
                 // Check that the turn is valid
-                board pieceAt posFrom match {
+                val g = board pieceAt posFrom match {
                     case Some(Piece(color, _, _, _)) if color != turn =>
                         throw GameException("Wait your turn!");
                     case Some(Piece(White, Pawn, Position(_, 7), _)) =>
@@ -106,6 +106,13 @@ case class Game(
                     case _ =>
                         val moveResult = board.performMove(posFrom, posTo);
                         fromMoveResult(moveResult).nextTurn
+                }
+
+                // Check for checkmate
+                if (g.board.isCheckMate(g.turn)) {
+                    g.setStatus(if (g.turn == White) GameWinBlack else GameWinWhite)
+                } else {
+                    g
                 }
             }
         } else {
@@ -121,7 +128,7 @@ case class Game(
             } else if (ts._2 <= 0) {
                 setStatus(GameWinWhite)
             } else {
-                board pieceAt posFrom match {
+                val g = board pieceAt posFrom match {
                     case Some(Piece(color, _, _, _)) if color != turn =>
                         throw GameException("Wait your turn!");
                     case Some(Piece(White, Pawn, Position(_, 7), _)) | Some(Piece(Black, Pawn, Position(_, 2), _)) =>
@@ -141,6 +148,13 @@ case class Game(
                         }
                     case _ =>
                         throw GameException("Invalid promotion, piece type or position invalid")
+                }
+
+                // Check for checkmate
+                if (g.board.isCheckMate(g.turn)) {
+                    g.setStatus(if (g.turn == White) GameWinBlack else GameWinWhite)
+                } else {
+                    g
                 }
             }
         } else {
