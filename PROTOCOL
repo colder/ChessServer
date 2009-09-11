@@ -49,7 +49,7 @@ status:     Logged => Playing
 command:    <games><join username=".." timers=".." /></games>
 reply:      <ack /> / <nack msg=".." />
 status:     Logged => Playing
-comment:    The server will then send a <game><joined username=".." timers=".." /></game> to the host
+comment:    The server will then send a <games><joined username=".." timers=".." /></games> to the host
 
 command:    <games><list /></games>
 reply:      <games><game username=".." />..</games>
@@ -92,7 +92,7 @@ reply:      <ack /> / <nack msg=".." />
 When you host, you'll receive a notification once the opponent joins your game,
 then game will then automatically start.
 
-    <game><joined username=".." /></game>
+    <games><joined username=".." /></games>
 
 === When playing a game: ===
 You'll receive a notification of the opponents moves and actions. [username] 
