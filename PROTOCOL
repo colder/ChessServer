@@ -25,6 +25,8 @@ promotion: a capital letter indicating the piece type
 
 salt: a string generated randomly for each server connections
 
+winner: The color of the winner "white"/"black"
+
 ==== Server Commands ====
 
 === Status: Init ===
@@ -100,6 +102,9 @@ You'll receive a notification of the opponents moves and actions
 <game><drawaccept /></game>
 <game><drawdecline /></game>
 <game><resign /></game>
+
+<game><end winner=".." /></game>
+<game><draw /></game>
 
 ==== Chatting ====
 You can chat when logged or playing.
