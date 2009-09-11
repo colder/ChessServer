@@ -98,8 +98,7 @@ class Server(port: Int) {
     }
 
     def freeGames = {
-        import logic.GameInit
-        games.values.filter{ g => g.game.status == GameInit }
+        pendingGames.values.map{_.toList}.reduceLeft{_:::_}
     }
 
 }
