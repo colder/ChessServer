@@ -100,7 +100,7 @@ class CLIClient {
         def executeCommand(cmd: Cmd) = {
             cmd match {
                 case GamesList =>
-                    out.println(<games><list /></games>);
+                    out.println(<chess><list /></chess>);
                     val reply = XML.loadString(in.readLine)
                     reply match {
                         case Elem(_, "nack", attr, _) =>
@@ -109,7 +109,7 @@ class CLIClient {
                             println(reply)
                     }
                 case GamesCreate(timers) =>
-                    out.println(<games><create timers={ timers.toString } /></games>);
+                    out.println(<chess><create timers={ timers.toString } /></chess>);
                     isNack match {
                         case None =>
                             pending ::= new Game(timers)
@@ -128,7 +128,7 @@ class CLIClient {
                             println("Error: "+x);
                     }
                 case GamesJoin(username, timers) =>
-                    out.println(<games><join username={ username } timers={ timers.toString } /></games>);
+                    out.println(<chess><join username={ username } timers={ timers.toString } /></chess>);
                     isNack match {
                         case None =>
                             games(username) = new Game(20).start
@@ -139,7 +139,7 @@ class CLIClient {
                             println("Error: "+x);
                     }
                 case MovePromote(from, to, typeTo) =>
-                    out.println(<game username={ remoteUsername }><move from={ from.algNotation } to={ to.algNotation } promotion={ typeTo.ab } /></game>);
+                    out.println(<chess username={ remoteUsername }><move from={ from.algNotation } to={ to.algNotation } promotion={ typeTo.ab } /></chess>);
                     isNack match {
                         case None =>
                             games(remoteUsername) = game.moveAndPromote(from, to, typeTo)
@@ -147,11 +147,11 @@ class CLIClient {
                             println("Error: "+x);
                     }
                 case Timers =>
-                    out.println(<game username={ remoteUsername }><timers /></game>);
+                    out.println(<chess username={ remoteUsername }><timers /></chess>);
                     val reply = XML.loadString(in.readLine)
                     println(reply)
                 case Resign =>
-                    out.println(<game username={ remoteUsername }><resign /></game>);
+                    out.println(<chess username={ remoteUsername }><resign /></chess>);
                     isNack match {
                         case None =>
                             games(remoteUsername) = game.resign(playingTeam)
@@ -159,7 +159,7 @@ class CLIClient {
                             println("Error: "+x);
                     }
                 case Draw =>
-                    out.println(<game username={ remoteUsername }><drawask /></game>);
+                    out.println(<chess username={ remoteUsername }><drawask /></chess>);
                     isNack match {
                         case None =>
                             games(remoteUsername) = game.drawAsk
@@ -167,7 +167,7 @@ class CLIClient {
                             println("Error: "+x);
                     }
                 case DrawAccept =>
-                    out.println(<game username={ remoteUsername }><drawaccept /></game>);
+                    out.println(<chess username={ remoteUsername }><drawaccept /></chess>);
                     isNack match {
                         case None =>
                             games(remoteUsername) = game.drawAccept
@@ -175,7 +175,7 @@ class CLIClient {
                             println("Error: "+x);
                     }
                 case DrawDecline =>
-                    out.println(<game username={ remoteUsername }><drawdecline /></game>);
+                    out.println(<chess username={ remoteUsername }><drawdecline /></chess>);
                     isNack match {
                         case None =>
                             games(remoteUsername) = game.drawDecline
@@ -200,7 +200,7 @@ class CLIClient {
                     }
 
                 case Move(from, to) =>
-                    out.println(<game username={ remoteUsername }><move from={ from.algNotation } to={ to.algNotation } /></game>);
+                    out.println(<chess username={ remoteUsername }><move from={ from.algNotation } to={ to.algNotation } /></chess>);
                     isNack match {
                         case None =>
                             games(remoteUsername) = game.move(from, to)
@@ -244,9 +244,9 @@ class CLIClient {
                     val cmd = in.readLine
                     println("(<) "+cmd);
                     XML.loadString(cmd) match {
-                        case Elem(_, "games", attr, _, c) =>
+                        case Elem(_, "chess", attr, _, c) if attr.get("username") == None =>
                             c match {
-                                case Elem(_, "joined", attr, _) =>
+                                case Elem(_, "join", attr, _) =>
                                         if (attr.get("username") != None && attr.get("timers") != None) {
                                             val username = attr("username").toString
                                             // select from pending
@@ -263,7 +263,7 @@ class CLIClient {
                                             println("invalid joined")
                                         }
                             }
-                        case Elem(_, "game", attr, _, c) if attr.get("username") != None =>
+                        case Elem(_, "chess", attr, _, c) if attr.get("username") != None =>
                             val username = attr("username").toString;
 
                             c match {
