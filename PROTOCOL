@@ -127,7 +127,7 @@ Retrieve others position:
 
 command:    <gps><get username=".." /></gps>
 reply:      <gps><position username=".." long=".." lat=".."/></gps>
-reply:      <gps><position username=".." long="N/A" lat="N/A"/>..</gps>
+reply:      <gps><position username=".." long="N/A" lat="N/A"/></gps>
 
 
 ==== Protocol Extensions ====
