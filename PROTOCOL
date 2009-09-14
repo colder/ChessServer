@@ -31,7 +31,7 @@ winner: The color of the winner "white"/"black"
 
 === Status: Init ===
 command:     <auth><login username=".." challenge=".." /></auth>
-reply:       <ack /> / <nack msg=".." />
+reply:       <auth><ack /> / <nack msg=".." /></auth>
 status:      Init => Logged
 description: challenge is sha1(password+salt). salt is transmitted by the server
              within the <hello> command
@@ -39,48 +39,47 @@ description: challenge is sha1(password+salt). salt is transmitted by the server
 
 === Status: Logged ===
 command:    <auth><logout /></auth>
-reply:      <ack /> / <nack msg=".." />
+reply:      <auth><ack /> / <nack msg=".." /></auth>
 status:     Logged => Init
 
-command:    <games><create timers=".." /></games>
-reply:      <ack /> / <nack msg=".." />
+command:    <chess><create timers=".." /></chess>
+reply:      <chess><ack /> / <nack msg=".." /></chess>
 status:     Logged => Playing
 
-command:    <games><join username=".." timers=".." /></games>
-reply:      <ack /> / <nack msg=".." />
+command:    <chess><join username=".." timers=".." /></chess>
+reply:      <chess><ack /> / <nack msg=".." /></chess>
 status:     Logged => Playing
-comment:    The server will then send a <games><joined username=".." timers=".." /></games> to the host
+comment:    The server will then send a <chess username=".."><join timers=".." /></games> to the host
 
-command:    <games><list /></games>
-reply:      <games><game username=".." />..</games>
+command:    <chess><list /></chess>
+reply:      <chess><game username=".." />..</chess>
 status:
 
-=== Status: Playing ===
-command:    <game username=".."><timers /></game>
-out:        <game username=".."><timers white=".." black=".." /></game>
+command:    <chess username=".."><timers /></chess>
+out:        <chess username=".."><timers white=".." black=".." /></chess>
 
-command:    <game username=".."><move from=".." to=".."/></game>
-reply:      <ack /> / <nack msg=".." />
+command:    <chess username=".."><move from=".." to=".."/></chess>
+reply:      <chess username=".."><ack /> / <nack msg=".." /></chess>
 
-command:    <game username=".."><movepromote from=".." to=".." promotion=".."/></game>
-reply:      <ack /> / <nack msg=".." />
+command:    <chess username=".."><movepromote from=".." to=".." promotion=".."/></chess>
+reply:      <chess username=".."><ack /> / <nack msg=".." /></chess>
 
-command:    <game username=".."><drawask /></game>
-reply:      <ack /> / <nack msg=".." />
+command:    <chess username=".."><drawask /></chess>
+reply:      <chess username=".."><ack /> / <nack msg=".." /></chess>
 comment:    If a draw can be requested (not enought material for checkmate, 50 moves
             rules or 3 similar conditions) the draw will be accepted without asking
             the opponent.
 
-command:    <game username=".."><drawaccept /></game>
-reply:      <ack /> / <nack msg=".." />
+command:    <chess username=".."><drawaccept /></chess>
+reply:      <chess username=".."><ack /> / <nack msg=".." /></chess>
 comment:    You can only accept a draw immediately after recieving a draw request
 
-command:    <game username=".."><drawdecline /></game>
-reply:      <ack /> / <nack msg=".." />
+command:    <chess username=".."><drawdecline /></chess>
+reply:      <chess username=".."><ack /> / <nack msg=".." /></chess>
 comment:    You can only decline a draw immediately after recieving a draw request
 
-command:    <game username=".."><resign /></game>
-reply:      <ack /> / <nack msg=".." />
+command:    <chess username=".."><resign /></chess>
+reply:      <chess username=".."><ack /> / <nack msg=".." /></chess>
 
 ==== Replies received from the server ====
 
@@ -92,27 +91,27 @@ reply:      <ack /> / <nack msg=".." />
 When you host, you'll receive a notification once the opponent joins your game,
 then game will then automatically start.
 
-    <games><joined username=".." timers=".." /></games>
+    <chess username=".."><join timers=".." /></chess>
 
 === When playing a game: ===
 You'll receive a notification of the opponents moves and actions. [username] 
 contains the opponent username.
 
-    <game username=".."><move from=".." to=".."/></game>
-    <game username=".."><movepromote from=".." to=".." promotion=".."/></game>
-    <game username=".."><drawask /></game>
-    <game username=".."><drawdecline /></game>
+    <chess username=".."><move from=".." to=".."/></chess>
+    <chess username=".."><movepromote from=".." to=".." promotion=".."/></chess>
+    <chess username=".."><drawask /></chess>
+    <chess username=".."><drawdecline /></chess>
 
 On game end:
 
-    <game username=".."><end winner=".." /></game>
-    <game username=".."><draw /></game>
+    <chess username=".."><end winner=".." /></chess>
+    <chess username=".."><draw /></chess>
 
 ==== Chatting ====
 You can chat when logged or playing.
 
 command:    <chat username=".."><msg>..</msg></chat>
-reply:      <ack /> / <nack msg=".." />
+reply:      <chat username=".."><ack /> / <nack msg=".." /></chat>
 
 Received from server when somebody writes to you:
 
