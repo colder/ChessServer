@@ -4,9 +4,10 @@ import java.net.ServerSocket;
 import scala.collection.mutable.{HashMap,HashSet}
 
 import database._
+import java.sql.SQLException
 
 class Server(cfg: Config) {
-    val serverSocket = new ServerSocket(port)
+    val serverSocket = new ServerSocket(cfg.hostPort)
 
     /* Stores every logged users: username->client */
     var users   = new HashMap[String, ServerClient]()
@@ -31,21 +32,49 @@ class Server(cfg: Config) {
         while(true) ServerClient(this, serverSocket.accept())
     }
 
-    def login(client: ServerClient, username: String, challenge: String, seed: String): Boolean = {
-        if (Hash.sha1("plop"+seed) equals challenge) {
-            if (users.get(username) != None) {
-                throw new ServerException("Login already in use");
+    def login(client: ServerClient, username: String, challenge: String, seed: String): Option[Int] = {
+        try {
+            val stmt = db.prepareStatement("SELECT id, password, logged_in FROM users WHERE username = ?", username)
+            val results = stmt.executeQuery
+
+            val retval = if (results.hasNext) {
+                val res = results.firstRow
+                if (Hash.sha1(res.getString("password")+seed) equals challenge) {
+                    if (res.getString("logged_in") equals "yes") {
+                        throw new ServerException("Login already in use");
+                    }
+                    db.prepareStatement("UPDATE users SET date_lastlogin=NOW(), logged_in = 'yes' WHERE id = ?", res.getInt("id")).executeUpdate
+
+                    users(username) = client
+                    players(username) = new HashSet[ServerGame]()
+                    pendingGames(username) = new HashSet[ServerGame];
+
+                    Some(res.getInt("id"))
+                } else {
+                    None
+                }
+            } else {
+                None
             }
-            users(username) = client
-            players(username) = new HashSet[ServerGame]()
-            pendingGames(username) = new HashSet[ServerGame];
-            true
-        } else {
-            false
+
+            stmt.close
+            retval
+        } catch {
+            case ex: SQLException =>
+                println("Woops: "+ex);
+                None
         }
     }
 
     def logout(client: ServerClient) = {
+        if (client.userid > 0) {
+            try {
+                db.prepareStatement("UPDATE users SET logged_in = 'no' WHERE id = ?", client.userid).executeUpdate
+            } catch {
+                case ex: SQLException =>
+                    println("Woops: "+ex);
+            }
+        }
         users -= client.username
         players(client.username).foreach { _.resign(client) }
         players -= client.username

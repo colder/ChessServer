@@ -15,6 +15,7 @@ import scala.collection.mutable.HashMap
 case class ServerClient(server: Server, sock: Socket) extends Thread {
     var status: ClientStatus = Annonymous
     var username: String = ""
+    var userid: Int = -1
     var games = new HashMap[String, ServerGame]()
 
     private val in = new BufferedReader(new InputStreamReader(sock.getInputStream()))
@@ -72,12 +73,19 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                     case Elem(_, "login", attr, _) =>
                         if (attr.get("challenge") != None && attr.get("username") != None) {
                             if (status == Annonymous) {
-                                if (server.login(this, attr("username").toString, attr("challenge").toString, salt)) {
-                                    status = Logged
-                                    username = attr("username").toString
-                                    sendAuthAck
-                                } else {
-                                    sendAuthNack("Invalid user/pass");
+                                try {
+                                    server.login(this, attr("username").toString, attr("challenge").toString, salt) match {
+                                        case Some(id) =>
+                                            status = Logged
+                                            username = attr("username").toString
+                                            userid = id
+                                            sendAuthAck
+                                        case None =>
+                                            sendAuthNack("Invalid user/pass");
+                                    }
+                                } catch {
+                                    case ex: ServerException =>
+                                        sendAuthNack(ex.getMessage);
                                 }
                             } else {
                                 sendAuthNack("You're already logged");
@@ -89,6 +97,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                         if (status == Logged) {
                             status = Annonymous
                             server.logout(this)
+                            userid = -1
                             sendAuthAck
                         }
                     case _ =>
