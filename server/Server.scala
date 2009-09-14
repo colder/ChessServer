@@ -147,15 +147,42 @@ class Server(cfg: Config) {
         pendingGames.values.map{_.toList}.reduceLeft{_:::_}
     }
 
-    val positions = new HashMap[String, GPSPosition]();
-
     def registerGPS(client: ServerClient, long: Int, lat: Int) = {
-        println("GPS: "+client.username+" ("+long+", "+lat+")");
-        positions(client.username) = GPSPosition(long, lat)
+        try {
+            db.prepareStatement("""INSERT INTO gps_positions
+                                         SET id_user = ?,
+                                             longitude = ?,
+                                             latitude = ?,
+                                             date = NOW()""", client.userid, long, lat).executeUpdate
+        } catch {
+            case ex: SQLException =>
+                println("Woops: "+ex);
+        }
     }
 
     def getGPS(username: String): Option[GPSPosition] = {
-        positions.get(username)
+        try {
+            val stmt = db.prepareStatement("""SELECT longitude, latitude
+                                                FROM gps_positions gp, users u
+                                               WHERE id_user = u.id AND u.username = ?
+                                            ORDER BY date DESC
+                                               LIMIT 1""", username)
+            val results = stmt.executeQuery
+
+            val retval = if (results.hasNext) {
+                val res = results.firstRow
+                Some(GPSPosition(res.getInt("longitude"), res.getInt("latitude")))
+            } else {
+                None
+            }
+
+            stmt.close
+            retval
+        } catch {
+            case ex: SQLException =>
+                println("Woops: "+ex);
+                None
+        }
     }
 }
 
