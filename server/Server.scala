@@ -3,7 +3,9 @@ package ChessServer.server
 import java.net.ServerSocket;
 import scala.collection.mutable.{HashMap,HashSet}
 
-class Server(port: Int) {
+import database._
+
+class Server(cfg: Config) {
     val serverSocket = new ServerSocket(port)
 
     /* Stores every logged users: username->client */
@@ -17,6 +19,12 @@ class Server(port: Int) {
 
     /* Stores every players: username->Set[game] */
     var players = new HashMap[String, HashSet[ServerGame]]()
+
+    /* Database connection */
+    val db = new MysqlConnection(cfg.dbDatabase, cfg.dbUser, cfg.dbPass)
+
+    /* Server port */
+    val port = cfg.hostPort
 
     def start = {
         println("Listening to port "+port+"...");

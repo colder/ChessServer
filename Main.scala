@@ -4,8 +4,15 @@ import server.Server
 
 object Main {
     def main(args: Array[String]): Unit = {
-        val s = new Server(12345);
+        if (args.length < 1) {
+            usage
+        } else {
+            val s = new Server(new Config(args(0)));
+            s.start
+        }
+    }
 
-        s.start
+    def usage = {
+        println("Usage: chessserver <config.xml>");
     }
 }

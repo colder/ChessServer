@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<chessserver>
+ <host port="12345" />
+ <db user="db_username" pass="db_password" database="db_name" />
+</chessserver>
