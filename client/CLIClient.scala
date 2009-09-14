@@ -207,6 +207,14 @@ class CLIClient {
                         case Some(x) =>
                             println("Error: "+x);
                     }
+                case Invite(username, timers) =>
+                    out.println(<chess username={ username }><invite timers={ timers.toString } /></chess>);
+                    isNack match {
+                        case None =>
+                            println(username+" has been invited!");
+                        case Some(x) =>
+                            println("Error: "+x);
+                    }
                 case SetUsername(us) =>
                     remoteUsername = us
                     println("Username set to "+us);
@@ -357,6 +365,7 @@ class CLIClient {
     case class GamesJoin(host: String, timers: Int) extends Cmd
     case class GamesCreate(timers: Int) extends Cmd
     case class SetUsername(username: String) extends Cmd
+    case class Invite(username: String, timers: Int) extends Cmd
     case class Login(username: String, password: String) extends Cmd
 
     def parse(str: String): Cmd = {
@@ -382,6 +391,7 @@ class CLIClient {
                 case "quit" :: Nil => Quit
                 case "exit" :: Nil => Quit
                 case "nop" :: Nil => Noop
+                case "i" :: username :: ts :: Nil => Invite(username, ts.toInt)
                 case "use" :: username :: Nil => SetUsername(username)
                 case "noop" :: Nil => Noop
                 case _ => Unknown(str)

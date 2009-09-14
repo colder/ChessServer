@@ -5,6 +5,8 @@ import java.io._
 
 import java.util.UUID
 
+import logic._
+
 abstract class ClientStatus;
 object Annonymous extends ClientStatus;
 object Logged extends ClientStatus;
@@ -133,7 +135,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
 
             case Elem(_, "chess", attr, _, g) if status == Logged && attr.get("username") != None =>
                 val username = attr("username").toString
-                val game = {
+                def game = {
                     games.get(username) match {
                         case Some(g) => g
                         case None =>
@@ -141,7 +143,6 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                     }
                 }
 
-                import logic._
                 g match {
                     case Elem(_, "move", attr, _) =>
                         if (attr.get("from") != None && attr.get("to") != None) {
@@ -183,6 +184,16 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                             game.drawDecline(this);
                     case Elem(_, "timers", _, _) =>
                             game.timers(this);
+                    case Elem(_, "invite", attr, _) if attr.get("timers") != None =>
+                        server.users.get(username) match {
+                            case Some(u) if !(this.username equals username) =>
+                                u.send(<chess username={ this.username }><invite timers={ attr("timers").toString } /></chess>);
+                                sendChessAck(u.username)
+                            case Some(u) =>
+                                sendChessNack(u.username, "Cannot send invitations to yourself")
+                            case None =>
+                                sendChessNack(username, "Username '"+username+"' not found")
+                        }
                     case _ =>
                         sendChessNack(username, "Unknown chess command");
                 }
