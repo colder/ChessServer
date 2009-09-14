@@ -218,7 +218,16 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                 server.logout(this)
                 false
             case Elem(_, label, attr, _, data) if status == Logged && attr.get("username") != None =>
-                // TODO: transmit the message
+                val username = attr("username").toString;
+                server.users.get(username) match {
+                    case Some(u) if !(this.username equals username) =>
+                        u.send("<"+label+" username=\""+username+"\">"+data.toString+"</"+label+">");
+                        send("<"+label+" username=\""+username+"\"><ack /></"+label+">");
+                    case Some(u) =>
+                        send("<"+label+" username=\""+username+"\"><nack msg=\"Can't send to yourself\" /></"+label+">");
+                    case None =>
+                        send("<"+label+" username=\""+username+"\"><nack msg=\"Username not found\" /></"+label+">");
+                }
                 true
             case _ if status == Logged =>
                 sendNack("Woot?")

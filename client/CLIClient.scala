@@ -207,6 +207,9 @@ class CLIClient {
                         case Some(x) =>
                             println("Error: "+x);
                     }
+                case Raw(msg) =>
+                    out.println(msg);
+
                 case Invite(username, timers) =>
                     out.println(<chess username={ username }><invite timers={ timers.toString } /></chess>);
                     isNack match {
@@ -365,6 +368,7 @@ class CLIClient {
     case class GamesJoin(host: String, timers: Int) extends Cmd
     case class GamesCreate(timers: Int) extends Cmd
     case class SetUsername(username: String) extends Cmd
+    case class Raw(msg: String) extends Cmd
     case class Invite(username: String, timers: Int) extends Cmd
     case class Login(username: String, password: String) extends Cmd
 
@@ -393,6 +397,7 @@ class CLIClient {
                 case "nop" :: Nil => Noop
                 case "i" :: username :: ts :: Nil => Invite(username, ts.toInt)
                 case "use" :: username :: Nil => SetUsername(username)
+                case "raw" :: msg => Raw(msg.mkString(" "))
                 case "noop" :: Nil => Noop
                 case _ => Unknown(str)
             }
