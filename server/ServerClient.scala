@@ -198,6 +198,25 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                         sendChessNack(username, "Unknown chess command");
                 }
                 true
+            case Elem(_, "gps", _, _, data) if status == Logged =>
+                data match {
+                    case Elem(_, "register", attr, _) if attr.get("long") != None && attr.get("lat") != None =>
+                        server.registerGPS(this, attr("long").toString.toInt, attr("lat").toString.toInt)
+                        sendGPSAck
+
+                    case Elem(_, "get", attr, _) if attr.get("username") != None =>
+                        val username = attr("username").toString
+                        server.getGPS(username) match {
+                            case Some(pos) =>
+                                send(<gps><position username={username} long={pos.long.toString} lat={pos.lat.toString} /></gps>)
+                            case None =>
+                                send(<gps><position username={username} long="N/A" lat="N/A" /></gps>)
+                        }
+
+                    case _ =>
+                        sendGPSNack("Invalid gps command")
+                }
+                true
             case Elem(_, "chat", attr, _, data) if status == Logged && (attr.get("username") != None) =>
                 val username = attr("username").toString;
                 data match {
@@ -239,6 +258,9 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
     } catch {
         case e => sendNack("Ooups! "+e.getMessage); true
     }
+
+    def sendGPSNack(msg: String) = send(<gps><nack msg={ msg } /></gps>)
+    def sendGPSAck = send(<gps><ack /></gps>)
 
     def sendAuthNack(msg: String) = send(<auth><nack msg={ msg } /></auth>)
     def sendAuthAck = send(<auth><ack /></auth>)

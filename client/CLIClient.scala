@@ -210,6 +210,18 @@ class CLIClient {
                 case Raw(msg) =>
                     out.println(msg);
 
+                case GPSGet(usernames) =>
+                    out.println("<gps>"+(usernames.map{ "<get username=\""+_+"\" />" }.mkString)+"</gps>");
+                    println(in.readLine)
+
+                case GPSRegister(long, lat) =>
+                    out.println(<gps><register long={ long.toString } lat={ lat.toString } /></gps>);
+                    isNack match {
+                        case None =>
+                            println("Position registered!");
+                        case Some(x) =>
+                            println("Error: "+x);
+                    }
                 case Invite(username, timers) =>
                     out.println(<chess username={ username }><invite timers={ timers.toString } /></chess>);
                     isNack match {
@@ -369,6 +381,8 @@ class CLIClient {
     case class GamesCreate(timers: Int) extends Cmd
     case class SetUsername(username: String) extends Cmd
     case class Raw(msg: String) extends Cmd
+    case class GPSRegister(long: Int, lat: Int) extends Cmd
+    case class GPSGet(usernames: List[String]) extends Cmd
     case class Invite(username: String, timers: Int) extends Cmd
     case class Login(username: String, password: String) extends Cmd
 
@@ -397,6 +411,8 @@ class CLIClient {
                 case "nop" :: Nil => Noop
                 case "i" :: username :: ts :: Nil => Invite(username, ts.toInt)
                 case "use" :: username :: Nil => SetUsername(username)
+                case "gpsr" :: long :: lat :: Nil => GPSRegister(long.toInt, lat.toInt)
+                case "gpsg" :: users => GPSGet(users)
                 case "raw" :: msg => Raw(msg.mkString(" "))
                 case "noop" :: Nil => Noop
                 case _ => Unknown(str)

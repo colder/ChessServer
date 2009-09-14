@@ -110,6 +110,16 @@ class Server(port: Int) {
         pendingGames.values.map{_.toList}.reduceLeft{_:::_}
     }
 
+    val positions = new HashMap[String, GPSPosition]();
+
+    def registerGPS(client: ServerClient, long: Int, lat: Int) = {
+        println("GPS: "+client.username+" ("+long+", "+lat+")");
+        positions(client.username) = GPSPosition(long, lat)
+    }
+
+    def getGPS(username: String): Option[GPSPosition] = {
+        positions.get(username)
+    }
 }
 
 case class ServerException(msg: String) extends RuntimeException(msg)
