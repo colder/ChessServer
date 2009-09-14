@@ -55,6 +55,9 @@ command:    <chess><list /></chess>
 reply:      <chess><game username=".." />..</chess>
 status:
 
+command:    <chess username=".."><invite timers=".." /></chess>
+reply:      <chess username=".."><ack /> / <nack msg=".." /></chess>
+
 command:    <chess username=".."><timers /></chess>
 out:        <chess username=".."><timers white=".." black=".." /></chess>
 
