@@ -73,67 +73,68 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                                 if (server.login(this, attr("username").toString, attr("challenge").toString, salt)) {
                                     status = Logged
                                     username = attr("username").toString
-                                    sendAck
+                                    sendAuthAck
                                 } else {
-                                    sendNack("Invalid user/pass");
+                                    sendAuthNack("Invalid user/pass");
                                 }
                             } else {
-                                sendNack("You're already logged");
+                                sendAuthNack("You're already logged");
                             }
                         } else {
-                            sendNack("Invalid auth.login command");
+                            sendAuthNack("Invalid auth.login command");
                         }
                     case Elem(_, "logout", attr, _) =>
                         if (status == Logged) {
                             status = Annonymous
                             server.logout(this)
-                            sendAck
+                            sendAuthAck
                         }
                     case _ =>
-                        sendNack("Unknown games command");
+                        sendAuthNack("Unknown games command");
 
                 }
                 true
 
 
-            case Elem(_, "chess", attr, _, g) if attr.get("username") == None => g match {
-                // <chess> commands that do not require any username paramt
+            // <chess> commands that do not require any username param
+            case Elem(_, "chess", attr, _, g) if status == Logged && attr.get("username") == None => g match {
                 case Elem(_, "create", attr, _) =>
                     if (attr.get("timers") != None) {
                         try {
                             server.create(this, attr("timers").toString.toLong)
-                            sendAck
+                            sendChessAck
                         } catch {
                             case se: ServerException =>
-                                sendNack("Failed to create: "+se.getMessage)
+                                sendChessNack("Failed to create: "+se.getMessage)
                         }
                     } else {
-                        sendNack("Invalid chess.create command");
+                        sendChessNack("Invalid chess.create command");
                     }
                 case Elem(_, "join", attr, _) =>
                     if (attr.get("username") != None && attr.get("timers") != None) {
                         try {
                             val g = server.join(this, attr("username").toString, attr("timers").toString.toLong)
                             games(g.host.username) = g
-                            sendAck
+                            sendChessAck
                         } catch {
                             case se: ServerException =>
-                                sendNack("Failed to join: "+se.getMessage)
+                                sendChessNack("Failed to join: "+se.getMessage)
                         }
                     } else {
-                        sendNack("Invalid chess.create command");
+                        sendChessNack("Invalid chess.create command");
                     }
                 case Elem(_, "list", attr, _) =>
                     send("<chess>"+{ server.freeGames(this).map { g => "<game username=\""+g.host.username+"\" timers=\""+g.ts+"\" />" }.mkString }+"</chess>")
 
                 case _ =>
-                    sendNack("Invalid chess command, maybe you forgot the username parameter?");
+                    sendChessNack("Invalid chess command, maybe you forgot the username parameter?");
             }
             true
 
-            case Elem(_, "chess", attr, _, g) if attr.get("username") != None =>
+            case Elem(_, "chess", attr, _, g) if status == Logged && attr.get("username") != None =>
+                val username = attr("username").toString
                 val game = {
-                    games.get(attr("username").toString) match {
+                    games.get(username) match {
                         case Some(g) => g
                         case None =>
                             throw new ServerException("Game not found!");
@@ -148,7 +149,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                                         new Position(attr("from").toString),
                                         new Position(attr("to").toString))
                         } else {
-                            sendNack("Invalid chess.move command");
+                            sendChessNack(username, "Invalid chess.move command");
                         }
                     case Elem(_, "movepromote", attr, _) =>
                         def parsePromotion(str: String): PieceType = str.toUpperCase match {
@@ -167,10 +168,10 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                                                         parsePromotion(attr("promotion").toString))
                             } catch {
                                 case e: ServerException =>
-                                    sendNack(e.getMessage);
+                                    sendChessNack(username, e.getMessage);
                             }
                         } else {
-                            sendNack("Invalid chess.movepromote command");
+                            sendChessNack(username, "Invalid chess.movepromote command");
                         }
                     case Elem(_, "resign", _, _) =>
                             game.resign(this)
@@ -183,45 +184,54 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                     case Elem(_, "timers", _, _) =>
                             game.timers(this);
                     case _ =>
-                        sendNack("Unknown chess command");
+                        sendChessNack(username, "Unknown chess command");
+                }
+                true
+            case Elem(_, "chat", attr, _, data) if status == Logged && (attr.get("username") != None) =>
+                val username = attr("username").toString;
+                data match {
+                    case Elem(_, "msg", _, _, data) =>
+                        server.users.get(username) match {
+                            case Some(u) if !(this.username equals username) =>
+                                u.send(<chat username={ this.username }><msg>{ data.toString }</msg></chat>);
+                                sendChatAck(u.username)
+                            case Some(u) =>
+                                sendChatNack(u.username, "Cannot send messages to yourself")
+                            case None =>
+                                sendChatNack(username, "Username '"+username+"' not found")
+                        }
                 }
                 true
             case <quit /> =>
                 status = Annonymous
                 server.logout(this)
-                sendAck
                 false
-            case <chat>{ a }</chat> =>
-                a match {
-                    case Elem(_, "msg", attr, _, data) if status != Annonymous=>
-                        if (attr.get("username") != None) {
-                            val username = attr("username").toString;
-                            server.users.get(username) match {
-                                case Some(u) if !(this.username equals username) =>
-                                    u.send(<chat><msg username={ this.username } >{ data.toString }</msg></chat>);
-                                    sendAck
-                                case Some(u) =>
-                                    sendNack("Cannot send messages to yourself")
-                                case None =>
-                                    sendNack("Username \""+username+"\" not found")
-                            }
-                        }
-                    case _ if status != Annonymous=>
-                        sendNack("Unknown game command");
-                    case _ =>
-                        sendNack("You need to be at least logged")
-                }
+            case Elem(_, label, attr, _, data) if status == Logged && attr.get("username") != None =>
+                // TODO: transmit the message
+                true
+            case _ if status == Logged =>
+                sendNack("Woot?")
                 true
             case _ =>
-                sendNack("woot?")
+                sendAuthNack("Login first")
                 true
         }
     } catch {
-        case e => sendNack(e.getMessage); true
+        case e => sendNack("Ooups! "+e.getMessage); true
     }
 
-    def sendNack(msg: String) = send(<nack msg={ msg } />);
-    def sendAck = send(<ack />);
+    def sendAuthNack(msg: String) = send(<auth><nack msg={ msg } /></auth>)
+    def sendAuthAck = send(<auth><ack /></auth>)
+
+    def sendChatNack(username: String, msg: String) = send(<chat username={ username }><nack msg={ msg } /></chat>)
+    def sendChatAck(username: String) = send(<chat username={ username }><ack /></chat>)
+
+    def sendChessNack(username: String, msg: String) = send(<chess username={ username }><nack msg={ msg } /></chess>)
+    def sendChessAck(username: String) = send(<chess username={ username }><ack /></chess>);
+    def sendChessNack(msg: String) = send(<chess><nack msg={ msg } /></chess>)
+    def sendChessAck = send(<chess><ack /></chess>);
+
+    def sendNack(msg: String) = send(<nack msg={ msg } />)
 
     def send(msg: xml.Node): Unit = send(msg.toString)
     def send(msg: String): Unit = {

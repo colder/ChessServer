@@ -33,24 +33,25 @@ class ServerGame(val server: Server, val host: ServerClient, val ts: Long) {
 
     def end = {
         // dispatch the game ending status to both players
-        val msg: Option[xml.Node] = game.status match {
+        val msg: Option[String => xml.Node] = game.status match {
             case GameWinBlack =>
-                Some(<chess><end winner="black" /></chess>)
+                Some(from => <chess username={ from }><end winner="black" /></chess>)
             case GameWinWhite =>
-                Some(<chess><end winner="white" /></chess>)
+                Some(from => <chess username={ from }><end winner="white" /></chess>)
             case GameDraw =>
-                Some(<chess><draw /></chess>)
+                Some(from => <chess username={ from }><draw /></chess>)
             case _ =>
                 None
         }
 
         msg match {
-            case Some(m) =>
-                host.send(m)
-                opponent match {
-                    case Some(op) => op.send(m)
-                    case None =>
-                }
+            case Some(m) => opponent match {
+                case Some(op) =>
+                    host.send(m(op.username))
+                    op.send(m(host.username))
+                case None =>
+                    host.send("")
+            }
             case None =>
         }
 
@@ -64,7 +65,7 @@ class ServerGame(val server: Server, val host: ServerClient, val ts: Long) {
         try {
             if (checkConditions) checkGameConditions(player)
             action
-            player.sendAck
+            player.send(<chess username={ otherplayer(player).username }><ack /></chess>)
 
             // Check the status of the game
             game.status match {
@@ -75,7 +76,7 @@ class ServerGame(val server: Server, val host: ServerClient, val ts: Long) {
             }
             true
         } catch {
-            case e => player.sendNack(e.getMessage)
+            case e => player.sendChessNack(otherplayer(player).username, e.getMessage)
                       false
         }
     }
@@ -85,22 +86,22 @@ class ServerGame(val server: Server, val host: ServerClient, val ts: Long) {
     }
 
     def move(player: ServerClient, from: Position, to: Position) =
-        op(player, game = game.move(from, to), <chess username={ otherplayer(player).username }><move from={ from.algNotation } to={ to.algNotation } /></chess>)
+        op(player, game = game.move(from, to), <chess username={ player.username }><move from={ from.algNotation } to={ to.algNotation } /></chess>)
 
     def moveAndPromote(player: ServerClient, from: Position, to: Position, promotion: PieceType) =
-        op(player, game = game.move(from, to), <chess username={ otherplayer(player).username }><move from={ from.algNotation } to={ to.algNotation } promotion={ promotion.ab } /></chess>)
+        op(player, game = game.move(from, to), <chess username={ player.username }><move from={ from.algNotation } to={ to.algNotation } promotion={ promotion.ab } /></chess>)
 
     def resign(player: ServerClient) =
-        op(player, game = game.resign(if (player == host) White else Black), <chess username={ otherplayer(player).username }><resign /></chess>, false) // ignore turn
+        op(player, game = game.resign(if (player == host) White else Black), <chess username={ player.username }><resign /></chess>, false) // ignore turn
 
     def drawAsk(player: ServerClient) =
-        op(player, game = game.drawAsk, <chess username={ otherplayer(player).username }><drawAsk /></chess>)
+        op(player, game = game.drawAsk, <chess username={ player.username }><drawAsk /></chess>)
 
     def drawAccept(player: ServerClient) =
-        op(player, game = game.drawAccept, <chess username={ otherplayer(player).username }><drawaccept /></chess>)
+        op(player, game = game.drawAccept, <chess username={ player.username }><drawaccept /></chess>)
 
     def drawDecline(player: ServerClient) =
-        op(player, game = game.drawDecline, <chess username={ otherplayer(player).username }><drawdecline /></chess>)
+        op(player, game = game.drawDecline, <chess username={ player.username }><drawdecline /></chess>)
 
     def checkGameConditions(player: ServerClient) = {
         if (player == host && game.turn != White || player != host && game.turn != Black) {

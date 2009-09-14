@@ -39,6 +39,7 @@ class Server(port: Int) {
 
     def logout(client: ServerClient) = {
         users -= client.username
+        players(client.username).foreach { _.resign(client) }
         players -= client.username
         pendingGames -= client.username
     }
@@ -81,7 +82,6 @@ class Server(port: Int) {
 
     def leave(client: ServerClient) = {
         if (client.status == Logged) {
-            players(client.username).foreach { _.resign(client) }
             logout(client)
         }
     }

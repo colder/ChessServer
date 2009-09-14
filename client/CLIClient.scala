@@ -86,9 +86,9 @@ class CLIClient {
         def isNack: Option[String] = {
             val reply = XML.loadString(in.readLine)
             reply match {
-                case <ack /> =>
+                case Elem(_, _, _, _, <ack />) =>
                     None
-                case Elem(_, "nack", attr, _) =>
+                case Elem(_, _, _, _, Elem(_, "nack", attr, _)) =>
                     if (attr("msg") != null) {
                         Some(attr("msg").toString)
                     } else {
@@ -192,7 +192,7 @@ class CLIClient {
                             println("Error: "+x);
                     }
                 case Msg(to, content) =>
-                    out.println(<chat><msg username={ to } >{ content }</msg></chat>);
+                    out.println(<chat username={ to } ><msg>{ content }</msg></chat>);
                     isNack match {
                         case None =>
                         case Some(x) =>
