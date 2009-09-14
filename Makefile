@@ -5,7 +5,7 @@ scalafiles:
 	fsc -unchecked -deprecation -classpath ${libs} -d classes `find . -name "*.scala"`
 
 run-server: scalafiles
-	scala -cp classes:${libs} ChessServer.Main config.xml
+	scala -cp classes:${libs} ChessServer.Main config-run.xml
 
 run-client: scalafiles
 	scala -cp classes:${libs} ChessServer.MainClient
