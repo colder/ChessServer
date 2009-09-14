@@ -1,13 +1,11 @@
+libs = libs/mysql-connector-java-3.0.17-ga-bin.jar
 all: scalafiles
 
 scalafiles:
-	fsc -unchecked -deprecation -d classes `find . -name "*.scala"`
-
-test: scalafiles
-	scala -cp classes ChessServer.Main
+	fsc -unchecked -deprecation -classpath ${libs} -d classes `find . -name "*.scala"`
 
 run-server: scalafiles
-	scala -cp classes ChessServer.Main
+	scala -cp classes:${libs} ChessServer.Main
 
 run-client: scalafiles
-	scala -cp classes ChessServer.MainClient
+	scala -cp classes:${libs} ChessServer.MainClient
