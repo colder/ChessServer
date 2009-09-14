@@ -117,3 +117,18 @@ Received from server when somebody writes to you:
 
     <chat username=".."><msg>..</msg></chat>
 
+==== Protocol Extensions ====
+
+You can extend the protocol with your own commands. Simply send
+
+    <[maintag] username="[target]">[content]</[maintag]>
+
+and the server will translate it to:
+
+    <[maintag] username="[source]">[content]</[maintag]>
+
+and send it to [target]. You will then receive either
+
+    <[maintag] username="[target]"><ack /></[maintag]>
+or
+    <[maintag] username="[target]"><nack msg=".." /></[maintag]>
