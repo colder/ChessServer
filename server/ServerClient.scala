@@ -138,12 +138,18 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                     case (_, Elem(_, "invite", attr, _)) if attr.get("timers") != None =>
                         server.users.get(username) match {
                             case Some(u) if !(this.username equals username) =>
-                                u.send(<chess username={ this.username }><invite timers={ attr("timers").toString } /></chess>);
-                                sendChessAck(u.username)
+                                // Check if a pending game with such timers exist
+                                server.findPendingGame(this.username, attr("timers").toString.toLong) match {
+                                    case Success(g) =>
+                                        u.send(<chess username={ this.username }><invite timers={ attr("timers").toString } /></chess>);
+                                        sendChessAck(u.username)
+                                    case Failure(msg) =>
+                                        sendChessNack(u.username, msg)
+                                }
                             case Some(u) =>
-                                sendChessNack(u.username, "Cannot send invitations to yourself")
+                                sendChessNack(this.username, "Cannot send invitations to yourself")
                             case None =>
-                                sendChessNack(username, "Username '"+username+"' not found")
+                                sendChessNack(this.username, "Username '"+username+"' not found")
                         }
                     case (Some(game), Elem(_, "move", attr, _)) =>
                         if (attr.get("from") != None && attr.get("to") != None) {

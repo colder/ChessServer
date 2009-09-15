@@ -90,6 +90,20 @@ class Server(cfg: Config) {
         game
     }
 
+    def findPendingGame(host: String, timers: Long): Result[_ <: ServerGame] = {
+        pendingGames.get(host) match {
+            case Some(gs) =>
+                    gs.find { _.ts == timers } match {
+                        case Some(g) =>
+                            Success(g)
+                        case None =>
+                            Failure("Game not found with those timers")
+                    }
+            case None =>
+                Failure("This host doesn't have any pending game")
+        }
+    }
+
     def join(client: ServerClient, host: String, timers: Long): Result[_ <: ServerGame] = {
         if (games.get((host, client.username)) != None || games.get((client.username, host)) != None) {
             Failure("Already playing against "+host+"!")
@@ -98,22 +112,17 @@ class Server(cfg: Config) {
             Failure("Can't join your own game!")
         }
 
-        pendingGames.get(host) match {
-            case Some(gs) =>
-                    gs.find { _.ts == timers } match {
-                        case Some(g) =>
-                            g.join(client)
+        findPendingGame(host, timers) match {
+            case Success(g) =>
+                g.join(client)
 
-                            games((host, client.username)) = g
-                            pendingGames(host) -= g;
-                            players(client.username) += g
+                games((host, client.username)) = g
+                pendingGames(host) -= g;
+                players(client.username) += g
 
-                            Success(g)
-                        case None =>
-                            Failure("Game not found with those timers")
-                    }
-            case None =>
-                Failure("Host not found")
+                Success(g)
+            case f :Failure =>
+                f
         }
     }
 
