@@ -111,20 +111,11 @@ class CLIClient {
 
         def executeCommand(cmd: Cmd) = {
             cmd match {
-                case GamesList =>
-                    out.println(<chess><list /></chess>);
-                    val reply = XML.loadString(getLine)
-                    reply match {
-                        case Elem(_, "nack", attr, _) =>
-                            println("Error: "+attr("msg"))
-                        case _ =>
-                            println(reply)
-                    }
-                case GamesCreate(timers) =>
-                    out.println(<chess><create timers={ timers.toString } /></chess>);
+                case GamesCreate(player, timers) =>
+                    out.println(<chess username={ player }><create timers={ timers.toString } /></chess>);
                     isNack match {
                         case None =>
-                            pending ::= new Game(timers)
+                            games(player) = new Game(timers)
                             playingTeam = White
                         case Some(x) =>
                             println("Error: "+x);
@@ -139,14 +130,22 @@ class CLIClient {
                         case Some(x) =>
                             println("Error: "+x);
                     }
-                case GamesJoin(username, timers) =>
-                    out.println(<chess username={ username }><join timers={ timers.toString } /></chess>);
+                case InviteAccept(username) =>
+                    out.println(<chess username={ username }><inviteaccept /></chess>);
                     isNack match {
                         case None =>
                             games(username) = new Game(20).start
                             remoteUsername = username
                             playingTeam = Black
                             display
+                        case Some(x) =>
+                            println("Error: "+x);
+                    }
+                case InviteDecline(username) =>
+                    out.println(<chess username={ username }><invitedecline /></chess>);
+                    isNack match {
+                        case None =>
+                            println("Invitation refused!");
                         case Some(x) =>
                             println("Error: "+x);
                     }
@@ -234,14 +233,6 @@ class CLIClient {
                         case Some(x) =>
                             println("Error: "+x);
                     }
-                case Invite(username, timers) =>
-                    out.println(<chess username={ username }><invite timers={ timers.toString } /></chess>);
-                    isNack match {
-                        case None =>
-                            println(username+" has been invited!");
-                        case Some(x) =>
-                            println("Error: "+x);
-                    }
                 case SetUsername(us) =>
                     remoteUsername = us
                     println("Username set to "+us);
@@ -283,21 +274,13 @@ class CLIClient {
                             val username = attr("username").toString;
 
                             c match {
-                                case Elem(_, "join", attrjoin, _) =>
-                                        if (attrjoin.get("timers") != None) {
-                                            // select from pending
-                                            pending match {
-                                                case g::gs =>
-                                                    remoteUsername = username
-                                                    games(username) = g.start
-                                                    pending = gs
-                                                    display
-                                                case _ =>
-                                                    println("game not found")
-                                            }
-                                        } else {
-                                            println("invalid joined")
-                                        }
+                                case Elem(_, "invitedecline", _, _) =>
+                                    games -= username
+                                    println("The fool is too afraid!")
+                                case Elem(_, "inviteaccept", _, _) =>
+                                    remoteUsername = username
+                                    games(username) = games(username).start
+                                    display
                                 case Elem(_, "move", attr, _) =>
                                     if (attr.get("from") != None && attr.get("to") != None) {
                                         games(username) = games(username).move(
@@ -385,16 +368,15 @@ class CLIClient {
     object Timers extends Cmd
     object Resign extends Cmd
     object Logout extends Cmd
-    object GamesList extends Cmd
     object Noop extends Cmd
     case class Msg(to: String, content:String) extends Cmd
-    case class GamesJoin(host: String, timers: Int) extends Cmd
-    case class GamesCreate(timers: Int) extends Cmd
+    case class InviteAccept(host: String) extends Cmd
+    case class InviteDecline(host: String) extends Cmd
+    case class GamesCreate(opponent: String, timers: Int) extends Cmd
     case class SetUsername(username: String) extends Cmd
     case class Raw(msg: String) extends Cmd
     case class GPSRegister(long: Int, lat: Int) extends Cmd
     case class GPSGet(usernames: List[String]) extends Cmd
-    case class Invite(username: String, timers: Int) extends Cmd
     case class Login(username: String, password: String) extends Cmd
 
     def parse(str: String): Cmd = {
@@ -405,9 +387,9 @@ class CLIClient {
                 case "msg" :: to :: msg => Msg(to, msg.mkString(" "))
                 case "a" :: p :: Nil => Analyze(new Position(p))
                 case "aa" :: Nil => AnalyzeAll
-                case "gl" :: Nil => GamesList
-                case "gc" :: t ::  Nil => GamesCreate(t.toInt)
-                case "gj" :: host :: timers :: Nil => GamesJoin(host, timers.toInt)
+                case "gc" :: opp :: t ::  Nil => GamesCreate(opp, t.toInt)
+                case "ia" :: host :: Nil => InviteAccept(host)
+                case "id" :: host :: Nil => InviteDecline(host)
                 case "q" :: Nil => Quit
                 case "di" :: Nil => Display
                 case "d" :: Nil => Draw
@@ -420,7 +402,6 @@ class CLIClient {
                 case "quit" :: Nil => Quit
                 case "exit" :: Nil => Quit
                 case "nop" :: Nil => Noop
-                case "i" :: username :: ts :: Nil => Invite(username, ts.toInt)
                 case "use" :: username :: Nil => SetUsername(username)
                 case "gpsr" :: long :: lat :: Nil => GPSRegister(long.toInt, lat.toInt)
                 case "gpsg" :: users => GPSGet(users)

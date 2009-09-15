@@ -57,10 +57,6 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
 
     def userlog = if (status != Annonymous) "["+username+"] " else "[@] "
 
-    def onJoin(game: ServerGame, player: ServerClient) = {
-        games(player.username) = game
-    }
-
     def parseLine(line: String): Boolean = {
         import scala.xml._
 
@@ -102,65 +98,42 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                 true
 
 
-            // <chess> commands that do not require any username param
-            case Elem(_, "chess", attr, _, g) if status == Logged && attr.get("username") == None => g match {
-                case Elem(_, "create", attr, _) =>
-                    if (attr.get("timers") != None) {
-                        server.create(this, attr("timers").toString.toLong)
-                        sendChessAck
-                    } else {
-                        sendChessNack("Invalid chess.create command");
-                    }
-                case Elem(_, "list", attr, _) =>
-                    send("<chess>"+{ server.freeGames(this).map { g => "<game username=\""+g.host.username+"\" timers=\""+g.ts+"\" />" }.mkString }+"</chess>")
-
-                case _ =>
-                    sendChessNack("Invalid chess command, maybe you forgot the username parameter?");
-            }
-            true
-
             case Elem(_, "chess", attr, _, g) if status == Logged && attr.get("username") != None =>
                 val username = attr("username").toString
                 (games.get(username), g) match {
-                    // Invite doesn't require any game
-                    case (_, Elem(_, "join", attrjoin, _)) =>
-                        if (attrjoin.get("timers") != None) {
-                            server.join(this, username, attrjoin("timers").toString.toLong) match {
-                                case Success(g) =>
-                                    games(g.host.username) = g
-                                    sendChessAck
-                                case Failure(msg) =>
-                                    sendChessNack("Failed to join: "+msg)
-                            }
-                        } else {
-                            sendChessNack("Invalid chess.create command");
+                    // Create doesn't require any game
+                    case (_, Elem(_, "create", attr, _)) if (attr.get("timers") != None) =>
+                        server.create(this, username, attr("timers").toString.toLong) match {
+                            case Success((game, opp)) =>
+                                opp.send(<chess username={this.username}><invite timers={ attr("timers").toString } /></chess>)
+                                games(opp.username) = game
+                                sendChessAck(username)
+                            case Failure(msg) =>
+                                sendChessNack(username, msg);
                         }
-                    // Invite doesn't require any game
-                    case (_, Elem(_, "invite", attr, _)) if attr.get("timers") != None =>
-                        server.users.get(username) match {
-                            case Some(u) if !(this.username equals username) =>
-                                // Check if a pending game with such timers exist
-                                server.findPendingGame(this.username, attr("timers").toString.toLong) match {
-                                    case Success(g) =>
-                                        u.send(<chess username={ this.username }><invite timers={ attr("timers").toString } /></chess>);
-                                        sendChessAck(u.username)
-                                    case Failure(msg) =>
-                                        sendChessNack(u.username, msg)
-                                }
-                            case Some(u) =>
-                                sendChessNack(this.username, "Cannot send invitations to yourself")
-                            case None =>
-                                sendChessNack(this.username, "Username '"+username+"' not found")
+                    // inviteaccept doesn't require any game
+                    case (_, Elem(_, "inviteaccept", _, _)) =>
+                        server.inviteaccept(this, username) match {
+                            case Success(g) =>
+                                games(username) = g
+                                sendChessAck(username)
+                            case Failure(msg) =>
+                                sendChessNack(username, "Failed to accept invitation: "+msg)
                         }
-                    case (Some(game), Elem(_, "move", attr, _)) =>
-                        if (attr.get("from") != None && attr.get("to") != None) {
-                            game.move(this,
-                                        new Position(attr("from").toString),
-                                        new Position(attr("to").toString))
-                        } else {
-                            sendChessNack(username, "Invalid chess.move command");
+
+                    // invitedecline doesn't require any game
+                    case (_, Elem(_, "invitedecline", _, _)) =>
+                        server.invitedecline(this, username) match {
+                            case Success(g) =>
+                                sendChessAck(username)
+                            case Failure(msg) =>
+                                sendChessNack(username, "Failed to cancel invitation: "+msg)
                         }
-                    case (Some(game), Elem(_, "movepromote", attr, _)) =>
+
+                    case (Some(game), Elem(_, "move", attr, _)) if (attr.get("from") != None && attr.get("to") != None) =>
+                        game.move(this, new Position(attr("from").toString), new Position(attr("to").toString))
+
+                    case (Some(game), Elem(_, "movepromote", attr, _)) if (attr.get("from") != None && attr.get("to") != None && attr.get("promotion") != None) =>
                         def parsePromotion(str: String): Result[_ <: PieceType] = str.toUpperCase match {
                             case "Q" => Success(Queen)
                             case "R" => Success(Rook)
@@ -169,21 +142,18 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                             case _ => Failure("Invalid promotion type")
                         }
 
-                        if (attr.get("from") != None && attr.get("to") != None && attr.get("promotion") != None) {
-                            parsePromotion(attr("promotion").toString) match {
-                                case Success(pt) =>
-                                    game.moveAndPromote(this,
-                                                        new Position(attr("from").toString),
-                                                        new Position(attr("to").toString),
-                                                        pt)
-                                case Failure(msg) =>
-                                    sendChessNack(username, msg);
-                            }
-                        } else {
-                            sendChessNack(username, "Invalid chess.movepromote command");
+                        parsePromotion(attr("promotion").toString) match {
+                            case Success(pt) =>
+                                game.moveAndPromote(this,
+                                                    new Position(attr("from").toString),
+                                                    new Position(attr("to").toString),
+                                                    pt)
+                            case Failure(msg) =>
+                                sendChessNack(username, msg);
                         }
                     case (Some(game), Elem(_, "resign", _, _)) =>
                             game.resign(this)
+                            games -= username
                     case (Some(game), Elem(_, "drawask", _, _)) =>
                             game.drawAsk(this);
                     case (Some(game), Elem(_, "drawaccept", _, _)) =>
@@ -193,7 +163,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                     case (Some(game), Elem(_, "timers", _, _)) =>
                             game.timers(this);
                     case (Some(game), _) =>
-                        sendChessNack(username, "Unknown chess command");
+                        sendChessNack(username, "Unknown  or invalid chess command. Maybe the parameters?");
                     case (None, _) =>
                         sendChessNack(username, "Game not found");
                 }
@@ -273,8 +243,6 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
 
     def sendChessNack(username: String, msg: String) = send(<chess username={ username }><nack msg={ msg } /></chess>)
     def sendChessAck(username: String) = send(<chess username={ username }><ack /></chess>);
-    def sendChessNack(msg: String) = send(<chess><nack msg={ msg } /></chess>)
-    def sendChessAck = send(<chess><ack /></chess>);
 
     def sendNack(msg: String) = send(<nack msg={ msg } />)
 

@@ -1,39 +1,41 @@
 package ChessServer.server
 
-class ServerGame(val server: Server, val host: ServerClient, val ts: Long) {
+class ServerGame(val server: Server, val host: ServerClient, val opponent: ServerClient, val ts: Long) {
     import logic._
 
     var game = new Game(ts)
-    var opponent: Option[ServerClient] = None
 
-    def started = opponent != None
+    var started = false
 
-    def join(player: ServerClient): Result[_ <: Game] = opponent match {
-        case Some(op) =>
-            Failure("This game is already full")
-        case None =>
-            opponent = Some(player)
-            host.onJoin(this, player)
+    def inviteaccept: Result[_ <: Game] = started match {
+        case true =>
+            Failure("This game has already started")
+        case false =>
+            host.send(<chess username={ opponent.username }><inviteaccept /></chess>)
+            started = true
             game = game.start
-            dispatch(player, <chess username={ player.username }><join timers={ ts.toString } /></chess>)
             Success(game)
     }
 
-    def otherplayer(player: ServerClient): Option[ServerClient] = {
+    def invitedecline: Result[_ <: Game] = started match {
+        case true =>
+            Failure("This game has already started")
+        case false =>
+            host.send(<chess username={ opponent.username }><invitedecline /></chess>)
+            started = true
+            game = game.resign(Black)
+            Success(game)
+    }
+
+    def otherplayer(player: ServerClient): ServerClient = {
         if (player == host) {
-            opponent match {
-                case Some(otherplayer) => Some(otherplayer)
-                case None => None
-            }
+            opponent
         } else {
-            Some(host)
+            host
         }
     }
 
-    def dispatch(player: ServerClient, msg: xml.Node) = otherplayer(player) match {
-        case Some(pl) => pl.send(msg.toString)
-        case None => println("! Trying to dispatch to innexistent opponent")
-    }
+    def dispatch(player: ServerClient, msg: xml.Node) = otherplayer(player).send(msg.toString)
 
     def end = {
         // dispatch the game ending status to both players
@@ -49,13 +51,9 @@ class ServerGame(val server: Server, val host: ServerClient, val ts: Long) {
         }
 
         msg match {
-            case Some(m) => opponent match {
-                case Some(op) =>
-                    host.send(m(op.username))
-                    op.send(m(host.username))
-                case None =>
-                    host.send("")
-            }
+            case Some(m) =>
+                host.send(m(opponent.username))
+                opponent.send(m(host.username))
             case None =>
         }
 
@@ -66,12 +64,12 @@ class ServerGame(val server: Server, val host: ServerClient, val ts: Long) {
         op(player, action, dispatchMsg, true)
 
     def op(player: ServerClient, action: => Unit, dispatchMsg: xml.Node, checkConditions: Boolean): Boolean = {
-        val oppUsername = otherplayer(player) map {_.username} getOrElse ""
+        val oppUsername = otherplayer(player).username
 
         if (checkConditions && (player == host && game.turn != White || player != host && game.turn != Black)) {
             player.sendChessNack(oppUsername ,"Wait your turn!");
             false
-        } else if ( checkConditions && opponent == None) {
+        } else if ( checkConditions && started == false) {
             player.sendChessNack(oppUsername,"Wait for your opponent!");
             false
         } else {
@@ -96,7 +94,7 @@ class ServerGame(val server: Server, val host: ServerClient, val ts: Long) {
     }
 
     def timers(player: ServerClient) = {
-        player.send(<chess username={ otherplayer(player) map ( _.username ) getOrElse "" }><timers white={ game.timers._1.toString } black={ game.timers._2.toString } /></chess>)
+        player.send(<chess username={ otherplayer(player).username }><timers white={ game.timers._1.toString } black={ game.timers._2.toString } /></chess>)
     }
 
     def move(player: ServerClient, from: Position, to: Position) =

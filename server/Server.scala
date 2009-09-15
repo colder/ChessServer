@@ -12,9 +12,6 @@ class Server(cfg: Config) {
     /* Stores every logged users: username->client */
     var users   = new HashMap[String, ServerClient]()
 
-    /* Stores every pending games: (host)->HashSet[game] */
-    var pendingGames = new HashMap[String, HashSet[ServerGame]]()
-
     /* Stores every running games: (host, opponent)->game */
     var games   = new HashMap[(String, String), ServerGame]()
 
@@ -48,7 +45,6 @@ class Server(cfg: Config) {
 
                         users(username) = client
                         players(username) = new HashSet[ServerGame]()
-                        pendingGames(username) = new HashSet[ServerGame];
 
                         Success(res.getInt("id"))
                     }
@@ -79,51 +75,47 @@ class Server(cfg: Config) {
         users -= client.username
         players(client.username).foreach { _.resign(client) }
         players -= client.username
-        pendingGames -= client.username
     }
 
-    def create(client: ServerClient, timers: Long): ServerGame = {
-        val game = new ServerGame(this, client, timers)
+    def create(client: ServerClient, player: String, timers: Long): Result[_ <: (ServerGame, ServerClient)] = {
+        if (games.get((player, client.username)) != None || games.get((player, client.username)) != None) {
+            Failure("Already playing against "+player+"!")
+        } else if (player equals client.username) {
+            Failure("Can't create to play against yourself!")
+        } else {
+            users.get(player) match {
+                case Some(opp) =>
+                    val game = new ServerGame(this, client, opp, timers)
 
-        pendingGames(client.username) += game;
-        players(client.username) += game
+                    games((client.username, player)) = game;
+                    players(client.username) += game
+                    players(opp.username) += game
 
-        game
-    }
-
-    def findPendingGame(host: String, timers: Long): Result[_ <: ServerGame] = {
-        pendingGames.get(host) match {
-            case Some(gs) =>
-                    gs.find { _.ts == timers } match {
-                        case Some(g) =>
-                            Success(g)
-                        case None =>
-                            Failure("Game not found with those timers")
-                    }
-            case None =>
-                Failure("This host doesn't have any pending game")
+                    Success((game, opp))
+                case None =>
+                    Failure("Opponent not found")
+            }
         }
     }
 
-    def join(client: ServerClient, host: String, timers: Long): Result[_ <: ServerGame] = {
-        if (games.get((host, client.username)) != None || games.get((client.username, host)) != None) {
-            Failure("Already playing against "+host+"!")
-        }
-        if (host equals client.username) {
-            Failure("Can't join your own game!")
-        }
-
-        findPendingGame(host, timers) match {
-            case Success(g) =>
-                g.join(client)
-
-                games((host, client.username)) = g
-                pendingGames(host) -= g;
-                players(client.username) += g
-
+    def inviteaccept(client: ServerClient, host: String): Result[_ <: ServerGame] = {
+        games.get((host, client.username)) match {
+            case Some(g) =>
+                g.inviteaccept
                 Success(g)
-            case f :Failure =>
-                f
+            case None =>
+                Failure("Game not found")
+        }
+    }
+
+    def invitedecline(client: ServerClient, host: String): Result[_ <: ServerGame] = {
+        games.get((host, client.username)) match {
+            case Some(g) =>
+                g.invitedecline
+                gameEnd(g)
+                Success(g)
+            case None =>
+                Failure("Game not found")
         }
     }
 
@@ -135,26 +127,15 @@ class Server(cfg: Config) {
 
     def gameEnd(servergame: ServerGame) = {
         val hostUsername = servergame.host.username
+        val oppUsername = servergame.opponent.username
+
         players(hostUsername) -= servergame
+        players(oppUsername) -= servergame
 
         servergame.host.onGameEnd(servergame)
+        servergame.opponent.onGameEnd(servergame)
 
-        servergame.opponent match {
-            case Some(sc) => {
-                // remove running game
-                sc.onGameEnd(servergame)
-                games -= ((hostUsername, sc.username))
-
-                players(sc.username) -= servergame
-            }
-            case None =>
-                // remove pending game
-                pendingGames(hostUsername) -= servergame
-        }
-    }
-
-    def freeGames(client: ServerClient) = {
-        pendingGames.values.map{_.toList}.reduceLeft{_:::_}
+        games -= ((hostUsername, oppUsername))
     }
 
     def registerGPS(client: ServerClient, long: Int, lat: Int) = {
