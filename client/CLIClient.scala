@@ -140,7 +140,7 @@ class CLIClient {
                             println("Error: "+x);
                     }
                 case GamesJoin(username, timers) =>
-                    out.println(<chess><join username={ username } timers={ timers.toString } /></chess>);
+                    out.println(<chess username={ username }><join timers={ timers.toString } /></chess>);
                     isNack match {
                         case None =>
                             games(username) = new Game(20).start
@@ -279,11 +279,12 @@ class CLIClient {
                     val cmd = getLine
                     println("(<) "+cmd);
                     XML.loadString(cmd) match {
-                        case Elem(_, "chess", attr, _, c) if attr.get("username") == None =>
+                        case Elem(_, "chess", attr, _, c) if attr.get("username") != None =>
+                            val username = attr("username").toString;
+
                             c match {
-                                case Elem(_, "join", attr, _) =>
-                                        if (attr.get("username") != None && attr.get("timers") != None) {
-                                            val username = attr("username").toString
+                                case Elem(_, "join", attrjoin, _) =>
+                                        if (attrjoin.get("timers") != None) {
                                             // select from pending
                                             pending match {
                                                 case g::gs =>
@@ -297,11 +298,6 @@ class CLIClient {
                                         } else {
                                             println("invalid joined")
                                         }
-                            }
-                        case Elem(_, "chess", attr, _, c) if attr.get("username") != None =>
-                            val username = attr("username").toString;
-
-                            c match {
                                 case Elem(_, "move", attr, _) =>
                                     if (attr.get("from") != None && attr.get("to") != None) {
                                         games(username) = games(username).move(

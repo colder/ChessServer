@@ -111,18 +111,6 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                     } else {
                         sendChessNack("Invalid chess.create command");
                     }
-                case Elem(_, "join", attr, _) =>
-                    if (attr.get("username") != None && attr.get("timers") != None) {
-                        server.join(this, attr("username").toString, attr("timers").toString.toLong) match {
-                            case Success(g) =>
-                                games(g.host.username) = g
-                                sendChessAck
-                            case Failure(msg) =>
-                                sendChessNack("Failed to join: "+msg)
-                        }
-                    } else {
-                        sendChessNack("Invalid chess.create command");
-                    }
                 case Elem(_, "list", attr, _) =>
                     send("<chess>"+{ server.freeGames(this).map { g => "<game username=\""+g.host.username+"\" timers=\""+g.ts+"\" />" }.mkString }+"</chess>")
 
@@ -134,6 +122,19 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
             case Elem(_, "chess", attr, _, g) if status == Logged && attr.get("username") != None =>
                 val username = attr("username").toString
                 (games.get(username), g) match {
+                    // Invite doesn't require any game
+                    case (_, Elem(_, "join", attrjoin, _)) =>
+                        if (attrjoin.get("timers") != None) {
+                            server.join(this, username, attrjoin("timers").toString.toLong) match {
+                                case Success(g) =>
+                                    games(g.host.username) = g
+                                    sendChessAck
+                                case Failure(msg) =>
+                                    sendChessNack("Failed to join: "+msg)
+                            }
+                        } else {
+                            sendChessNack("Invalid chess.create command");
+                        }
                     // Invite doesn't require any game
                     case (_, Elem(_, "invite", attr, _)) if attr.get("timers") != None =>
                         server.users.get(username) match {
