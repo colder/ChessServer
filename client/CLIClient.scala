@@ -4,6 +4,9 @@ import java.net._
 import xml._
 import java.io.{BufferedReader,InputStreamReader,PrintWriter}
 
+object ServerDisconnectedException extends RuntimeException("Server went away")
+
+
 class CLIClient {
     import scala.collection.mutable.{HashSet,HashMap,Set}
     import logic._
@@ -83,8 +86,17 @@ class CLIClient {
         val out = new PrintWriter(sock.getOutputStream(), true);
         val in = new BufferedReader(new InputStreamReader(sock.getInputStream()));
 
+        def getLine = {
+            val line = in.readLine
+            if (line == null) {
+                throw ServerDisconnectedException
+            }
+            line
+        }
+
+
         def isNack: Option[String] = {
-            val reply = XML.loadString(in.readLine)
+            val reply = XML.loadString(getLine)
             reply match {
                 case Elem(_, _, _, _, <ack />) =>
                     None
@@ -101,7 +113,7 @@ class CLIClient {
             cmd match {
                 case GamesList =>
                     out.println(<chess><list /></chess>);
-                    val reply = XML.loadString(in.readLine)
+                    val reply = XML.loadString(getLine)
                     reply match {
                         case Elem(_, "nack", attr, _) =>
                             println("Error: "+attr("msg"))
@@ -148,7 +160,7 @@ class CLIClient {
                     }
                 case Timers =>
                     out.println(<chess username={ remoteUsername }><timers /></chess>);
-                    val reply = XML.loadString(in.readLine)
+                    val reply = XML.loadString(getLine)
                     println(reply)
                 case Resign =>
                     out.println(<chess username={ remoteUsername }><resign /></chess>);
@@ -212,7 +224,7 @@ class CLIClient {
 
                 case GPSGet(usernames) =>
                     out.println("<gps>"+(usernames.map{ "<get username=\""+_+"\" />" }.mkString)+"</gps>");
-                    println(in.readLine)
+                    println(getLine)
 
                 case GPSRegister(long, lat) =>
                     out.println(<gps><register long={ long.toString } lat={ lat.toString } /></gps>);
@@ -252,7 +264,7 @@ class CLIClient {
             }
         }
 
-        XML.loadString(in.readLine) match {
+        XML.loadString(getLine) match {
             case Elem(_, "hello", attr, _) =>
                 loginSalt = attr("salt").toString
             case x =>
@@ -264,7 +276,7 @@ class CLIClient {
             try {
                 // Is there anything on the line?
                 while (in.ready) {
-                    val cmd = in.readLine
+                    val cmd = getLine
                     println("(<) "+cmd);
                     XML.loadString(cmd) match {
                         case Elem(_, "chess", attr, _, c) if attr.get("username") == None =>
@@ -350,6 +362,9 @@ class CLIClient {
                     }
                 }
             } catch {
+                case ServerDisconnectedException =>
+                    println("Server went away..")
+                    continue = false
                 case _: java.io.EOFException =>
                     continue = false
                 case e =>
