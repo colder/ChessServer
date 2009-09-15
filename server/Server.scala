@@ -29,6 +29,7 @@ class Server(cfg: Config) {
 
     def start = {
         println("Listening to port "+port+"...");
+        init
         while(true) ServerClient(this, serverSocket.accept())
     }
 
@@ -205,6 +206,17 @@ class Server(cfg: Config) {
             case ex: SQLException =>
                 println("Woops: "+ex);
         }
+    }
+
+    def init = {
+        Runtime.getRuntime().addShutdownHook(new Thread {
+            override def run = shutdown
+        })
+    }
+
+    def shutdown = {
+        println("Shutting down gracefully..")
+        users map { u => leave(u._2) }
     }
 }
 
