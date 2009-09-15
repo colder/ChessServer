@@ -8,28 +8,32 @@ class ServerGame(val server: Server, val host: ServerClient, val ts: Long) {
 
     def started = opponent != None
 
-    def join(player: ServerClient) = opponent match {
+    def join(player: ServerClient): Result[_ <: Game] = opponent match {
         case Some(op) =>
-            throw ProtocolException("This game is already full")
+            Failure("This game is already full")
         case None =>
             opponent = Some(player)
             host.onJoin(this, player)
             game = game.start
             dispatch(player, <chess><join username={ player.username } timers={ ts.toString } /></chess>)
+            Success(game)
     }
 
-    def otherplayer(player: ServerClient) = {
+    def otherplayer(player: ServerClient): Option[ServerClient] = {
         if (player == host) {
             opponent match {
-                case Some(otherplayer) => otherplayer
-                case None => throw new ProtocolException("No opponent, can't dispatch message");
+                case Some(otherplayer) => Some(otherplayer)
+                case None => None
             }
         } else {
-            host
+            Some(host)
         }
     }
 
-    def dispatch(player: ServerClient, msg: xml.Node) = otherplayer(player).send(msg.toString)
+    def dispatch(player: ServerClient, msg: xml.Node) = otherplayer(player) match {
+        case Some(pl) => pl.send(msg.toString)
+        case None => println("! Trying to dispatch to innexistent opponent")
+    }
 
     def end = {
         // dispatch the game ending status to both players
@@ -62,27 +66,37 @@ class ServerGame(val server: Server, val host: ServerClient, val ts: Long) {
         op(player, action, dispatchMsg, true)
 
     def op(player: ServerClient, action: => Unit, dispatchMsg: xml.Node, checkConditions: Boolean): Boolean = {
-        try {
-            if (checkConditions) checkGameConditions(player)
-            action
-            player.send(<chess username={ otherplayer(player).username }><ack /></chess>)
+        val oppUsername = otherplayer(player) map {_.username} getOrElse ""
 
-            // Check the status of the game
-            game.status match {
-                case _ : GameEnded =>
-                    end
-                case _ =>
-                    dispatch(player, dispatchMsg)
+        if (checkConditions && (player == host && game.turn != White || player != host && game.turn != Black)) {
+            player.sendChessNack(oppUsername ,"Wait your turn!");
+            false
+        } else if ( checkConditions && opponent == None) {
+            player.sendChessNack(oppUsername,"Wait for your opponent!");
+            false
+        } else {
+            try {
+                action
+                player.send(<chess username={ oppUsername }><ack /></chess>)
+
+                // Check the status of the game
+                game.status match {
+                    case _ : GameEnded =>
+                        end
+                    case _ =>
+                        dispatch(player, dispatchMsg)
+                }
+                true
+            } catch {
+                case ge: GameException =>
+                    player.sendChessNack(oppUsername, ge.getMessage)
+                    false
             }
-            true
-        } catch {
-            case e => player.sendChessNack(otherplayer(player).username, e.getMessage)
-                      false
         }
     }
 
     def timers(player: ServerClient) = {
-        player.send(<chess username={ otherplayer(player).username }><timers white={ game.timers._1.toString } black={ game.timers._2.toString } /></chess>)
+        player.send(<chess username={ otherplayer(player) map ( _.username ) getOrElse "" }><timers white={ game.timers._1.toString } black={ game.timers._2.toString } /></chess>)
     }
 
     def move(player: ServerClient, from: Position, to: Position) =
@@ -102,14 +116,6 @@ class ServerGame(val server: Server, val host: ServerClient, val ts: Long) {
 
     def drawDecline(player: ServerClient) =
         op(player, game = game.drawDecline, <chess username={ player.username }><drawdecline /></chess>)
-
-    def checkGameConditions(player: ServerClient) = {
-        if (player == host && game.turn != White || player != host && game.turn != Black) {
-            throw ProtocolException("Wait your turn!");
-        } else if (opponent == None) {
-            throw ProtocolException("Wait for your opponent!");
-        }
-    }
 }
 
 case class ProtocolException(msg: String) extends RuntimeException(msg)
