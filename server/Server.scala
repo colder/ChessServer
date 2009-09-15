@@ -193,6 +193,19 @@ class Server(cfg: Config) {
                 None
         }
     }
+
+    def logChatMessage(from: ServerClient, to: ServerClient, msg: String) = {
+        try {
+            db.prepareStatement("""INSERT INTO chat
+                                         SET id_user_from = ?,
+                                             id_user_to = ?,
+                                             date = NOW(),
+                                             message = ?""", from.userid, to.userid, msg).executeUpdate
+        } catch {
+            case ex: SQLException =>
+                println("Woops: "+ex);
+        }
+    }
 }
 
 case class ServerException(msg: String) extends RuntimeException(msg)

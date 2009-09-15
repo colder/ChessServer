@@ -224,6 +224,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                             case Some(u) if !(this.username equals username) =>
                                 u.send(<chat username={ this.username }><msg>{ data.toString }</msg></chat>);
                                 sendChatAck(u.username)
+                                server.logChatMessage(this, u, data.toString)
                             case Some(u) =>
                                 sendChatNack(u.username, "Cannot send messages to yourself")
                             case None =>
