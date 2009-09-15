@@ -27,6 +27,8 @@ salt: a string generated randomly for each server connections
 
 winner: The color of the winner "white"/"black"
 
+logged: Whether the user is currently logged in (yes/no)
+
 ==== Server Commands ====
 
 === Status: Init ===
@@ -42,21 +44,13 @@ command:    <auth><logout /></auth>
 reply:      <auth><ack /> / <nack msg=".." /></auth>
 status:     Logged => Init
 
-command:    <chess><create timers=".." /></chess>
-reply:      <chess><ack /> / <nack msg=".." /></chess>
-status:     Logged => Playing
+command:    <chess username=".."><create timers=".." /></chess>
+reply:      <chess username=".."><ack /> / <nack msg=".." /></chess>
+comment:    The server will then send a <chess username=".."><invite timers=".." /></games> to the player
 
 command:    <chess><join username=".." timers=".." /></chess>
 reply:      <chess><ack /> / <nack msg=".." /></chess>
-status:     Logged => Playing
 comment:    The server will then send a <chess username=".."><join timers=".." /></games> to the host
-
-command:    <chess><list /></chess>
-reply:      <chess><game username=".." />..</chess>
-status:
-
-command:    <chess username=".."><invite timers=".." /></chess>
-reply:      <chess username=".."><ack /> / <nack msg=".." /></chess>
 
 command:    <chess username=".."><timers /></chess>
 out:        <chess username=".."><timers white=".." black=".." /></chess>
@@ -129,8 +123,8 @@ reply:      <gps><ack /> /<nack msg=".." /></gps>
 Retrieve others position:
 
 command:    <gps><get username=".." /></gps>
-reply:      <gps><position username=".." long=".." lat=".."/></gps>
-reply:      <gps><position username=".." long="N/A" lat="N/A"/></gps>
+reply:      <gps><position username=".." long=".." lat=".." logged=".." /></gps>
+reply:      <gps><position username=".." long="N/A" lat="N/A" logged="no" /></gps>
 
 
 ==== Protocol Extensions ====
