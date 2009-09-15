@@ -33,7 +33,7 @@ winner: The color of the winner "white"/"black"
 command:     <auth><login username=".." challenge=".." /></auth>
 reply:       <auth><ack /> / <nack msg=".." /></auth>
 status:      Init => Logged
-description: challenge is sha1(password+salt). salt is transmitted by the server
+description: challenge is sha1(sha1(password)+salt). salt is transmitted by the server
              within the <hello> command
 
 

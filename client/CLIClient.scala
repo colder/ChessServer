@@ -118,7 +118,7 @@ class CLIClient {
                             println("Error: "+x);
                     }
                 case Login(user, pass) =>
-                    val passwordHashed = server.Hash.sha1(pass+loginSalt);
+                    val passwordHashed = server.Hash.sha1(server.Hash.sha1(pass)+loginSalt);
                     out.println(<auth><login username={ user } challenge={ passwordHashed } /></auth>);
                     isNack match {
                         case None =>
