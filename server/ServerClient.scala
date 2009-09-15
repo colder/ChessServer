@@ -61,7 +61,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
         games(player.username) = game
     }
 
-    def parseLine(line: String): Boolean = try {
+    def parseLine(line: String): Boolean = {
         import scala.xml._
 
         println("< "+userlog+line);
@@ -73,19 +73,14 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                     case Elem(_, "login", attr, _) =>
                         if (attr.get("challenge") != None && attr.get("username") != None) {
                             if (status == Annonymous) {
-                                try {
-                                    server.login(this, attr("username").toString, attr("challenge").toString, salt) match {
-                                        case Success(id) =>
-                                            status = Logged
-                                            username = attr("username").toString
-                                            userid = id
-                                            sendAuthAck
-                                        case Failure(msg) =>
-                                            sendAuthNack(msg);
-                                    }
-                                } catch {
-                                    case ex: ServerException =>
-                                        sendAuthNack(ex.getMessage);
+                                server.login(this, attr("username").toString, attr("challenge").toString, salt) match {
+                                    case Success(id) =>
+                                        status = Logged
+                                        username = attr("username").toString
+                                        userid = id
+                                        sendAuthAck
+                                    case Failure(msg) =>
+                                        sendAuthNack(msg);
                                 }
                             } else {
                                 sendAuthNack("You're already logged");
@@ -253,8 +248,6 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                 sendAuthNack("Login first")
                 true
         }
-    } catch {
-        case e => sendNack("Ooups! "+e.getMessage); true
     }
 
     def sendGPSNack(msg: String) = send(<gps><nack msg={ msg } /></gps>)
