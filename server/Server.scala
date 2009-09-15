@@ -32,7 +32,7 @@ class Server(cfg: Config) {
         while(true) ServerClient(this, serverSocket.accept())
     }
 
-    def login(client: ServerClient, username: String, challenge: String, seed: String): Option[Int] = {
+    def login(client: ServerClient, username: String, challenge: String, seed: String): Result[_ <: Int] = {
         try {
             val stmt = db.prepareStatement("SELECT id, password, logged_in FROM users WHERE username = ?", username)
             val results = stmt.executeQuery
@@ -41,28 +41,28 @@ class Server(cfg: Config) {
                 val res = results.firstRow
                 if (Hash.sha1(res.getString("password")+seed) equals challenge) {
                     if (res.getString("logged_in") equals "yes") {
-                        throw new ServerException("Login already in use");
+                        Failure("Login already in use")
+                    } else {
+                        db.prepareStatement("UPDATE users SET date_lastlogin=NOW(), logged_in = 'yes' WHERE id = ?", res.getInt("id")).executeUpdate
+
+                        users(username) = client
+                        players(username) = new HashSet[ServerGame]()
+                        pendingGames(username) = new HashSet[ServerGame];
+
+                        Success(res.getInt("id"))
                     }
-                    db.prepareStatement("UPDATE users SET date_lastlogin=NOW(), logged_in = 'yes' WHERE id = ?", res.getInt("id")).executeUpdate
-
-                    users(username) = client
-                    players(username) = new HashSet[ServerGame]()
-                    pendingGames(username) = new HashSet[ServerGame];
-
-                    Some(res.getInt("id"))
                 } else {
-                    None
+                    Failure("Incorrect username/password")
                 }
             } else {
-                None
+                Failure("Incorrect username/password")
             }
 
             stmt.close
             retval
         } catch {
             case ex: SQLException =>
-                println("Woops: "+ex);
-                None
+                Failure("Woops: "+ex);
         }
     }
 
@@ -90,12 +90,12 @@ class Server(cfg: Config) {
         game
     }
 
-    def join(client: ServerClient, host: String, timers: Long): ServerGame = {
+    def join(client: ServerClient, host: String, timers: Long): Result[_ <: ServerGame] = {
         if (games.get((host, client.username)) != None || games.get((client.username, host)) != None) {
-            throw ServerException("Already playing against "+host+"!")
+            Failure("Already playing against "+host+"!")
         }
         if (host equals client.username) {
-            throw ServerException("Can't join your own game!")
+            Failure("Can't join your own game!")
         }
 
         pendingGames.get(host) match {
@@ -108,12 +108,12 @@ class Server(cfg: Config) {
                             pendingGames(host) -= g;
                             players(client.username) += g
 
-                            g
+                            Success(g)
                         case None =>
-                            throw ServerException("Game not found")
+                            Failure("Game not found with those timers")
                     }
             case None =>
-                throw ServerException("Game not found")
+                Failure("Host not found")
         }
     }
 
