@@ -48,9 +48,13 @@ command:    <chess username=".."><create timers=".." /></chess>
 reply:      <chess username=".."><ack /> / <nack msg=".." /></chess>
 comment:    The server will then send a <chess username=".."><invite timers=".." /></games> to the player
 
-command:    <chess><join username=".." timers=".." /></chess>
-reply:      <chess><ack /> / <nack msg=".." /></chess>
-comment:    The server will then send a <chess username=".."><join timers=".." /></games> to the host
+command:    <chess username=".."><inviteaccept /></chess>
+reply:      <chess username=".."><ack /> / <nack msg=".." /></chess>
+comment:    The server will then send a <chess username=".."><inviteaccept /></games> to the host
+
+command:    <chess username=".."><invitedecline /></chess>
+reply:      <chess username=".."><ack /> / <nack msg=".." /></chess>
+comment:    The server will then send a <chess username=".."><invitedecline /></games> to the host
 
 command:    <chess username=".."><timers /></chess>
 out:        <chess username=".."><timers white=".." black=".." /></chess>
@@ -85,14 +89,26 @@ reply:      <chess username=".."><ack /> / <nack msg=".." /></chess>
     <hello salt=".." />
 
 === When hosting a game: ===
-When you host, you'll receive a notification once the opponent joins your game,
-then game will then automatically start.
+When you host, you'll receive a notification once the opponent accepts or rejects
+your invitation, if he accepts, the game automatically starts:
 
-    <chess username=".."><join timers=".." /></chess>
+    <chess username=".."><inviteaccept /></chess>
+or:
+    <chess username=".."><invitedecline /></chess>
+
+=== Being invited ===
+Whenever somebody creates a game with you, you'll receive an invitation looking like:
+    <chess username=".."><invite timers=".."/></chess>
+
+
+You need to reply with:
+
+    <chess username=".."><inviteaccept /></chess>
+or:
+    <chess username=".."><invitedecline /></chess>
 
 === When playing a game: ===
-You'll receive a notification of the opponents moves and actions. [username] 
-contains the opponent username.
+You'll receive a notification of the opponents moves and actions:
 
     <chess username=".."><move from=".." to=".."/></chess>
     <chess username=".."><movepromote from=".." to=".." promotion=".."/></chess>
