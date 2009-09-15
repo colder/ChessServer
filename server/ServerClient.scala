@@ -208,9 +208,13 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                         val username = attr("username").toString
                         server.getGPS(username) match {
                             case Some(pos) =>
-                                send(<gps><position username={username} long={pos.long.toString} lat={pos.lat.toString} /></gps>)
+                                val logged = server.users.get(username) match {
+                                    case Some(x) => "yes"
+                                    case None => "no"
+                                }
+                                send(<gps><position username={username} long={pos.long.toString} lat={pos.lat.toString} logged={ logged } /></gps>)
                             case None =>
-                                send(<gps><position username={username} long="N/A" lat="N/A" /></gps>)
+                                send(<gps><position username={username} long="N/A" lat="N/A" logged="no" /></gps>)
                         }
 
                     case _ =>
