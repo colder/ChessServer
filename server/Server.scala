@@ -7,22 +7,22 @@ import database._
 import java.sql.SQLException
 
 class Server(cfg: Config) {
-    val serverSocket = new ServerSocket(cfg.hostPort)
+    private val serverSocket = new ServerSocket(cfg.hostPort)
 
     /* Stores every logged users: username->client */
-    var users   = new HashMap[String, ServerClient]()
+    private var users   = new HashMap[String, ServerClient]()
 
     /* Stores every running games: (host, opponent)->game */
-    var games   = new HashMap[(String, String), ServerGame]()
+    private var games   = new HashMap[(String, String), ServerGame]()
 
     /* Stores every players: username->Set[game] */
-    var players = new HashMap[String, HashSet[ServerGame]]()
+    private var players = new HashMap[String, HashSet[ServerGame]]()
 
     /* Database connection */
-    val db = new MysqlConnection(cfg.dbDatabase, cfg.dbUser, cfg.dbPass)
+    private val db = new MysqlConnection(cfg.dbDatabase, cfg.dbUser, cfg.dbPass)
 
     /* Server port */
-    val port = cfg.hostPort
+    private val port = cfg.hostPort
 
     def start = {
         println("Listening to port "+port+"...");
@@ -97,6 +97,8 @@ class Server(cfg: Config) {
             }
         }
     }
+
+    def user(username: String) = users.get(username)
 
     def inviteaccept(client: ServerClient, host: String): Result[_ <: ServerGame] = {
         games.get((host, client.username)) match {

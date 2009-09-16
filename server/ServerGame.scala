@@ -3,41 +3,16 @@ package ChessServer.server
 class ServerGame(val server: Server, val host: ServerClient, val opponent: ServerClient, val ts: Long) {
     import logic._
 
-    var game = new Game(ts)
+    private var game = new Game(ts)
 
-    var started = false
+    private var started = false
 
-    def inviteaccept: Result[_ <: Game] = started match {
-        case true =>
-            Failure("This game has already started")
-        case false =>
-            host.send(<chess username={ opponent.username }><inviteaccept /></chess>)
-            started = true
-            game = game.start
-            Success(game)
-    }
+    private def otherplayer(player: ServerClient): ServerClient =
+        if (player == host) { opponent } else { host }
 
-    def invitedecline: Result[_ <: Game] = started match {
-        case true =>
-            Failure("This game has already started")
-        case false =>
-            host.send(<chess username={ opponent.username }><invitedecline /></chess>)
-            started = true
-            game = game.resign(Black)
-            Success(game)
-    }
+    private def dispatch(player: ServerClient, msg: xml.Node) = otherplayer(player).send(msg.toString)
 
-    def otherplayer(player: ServerClient): ServerClient = {
-        if (player == host) {
-            opponent
-        } else {
-            host
-        }
-    }
-
-    def dispatch(player: ServerClient, msg: xml.Node) = otherplayer(player).send(msg.toString)
-
-    def end = {
+    private def end = {
         // dispatch the game ending status to both players
         val msg: Option[String => xml.Node] = game.status match {
             case GameWinBlack =>
@@ -60,10 +35,10 @@ class ServerGame(val server: Server, val host: ServerClient, val opponent: Serve
         server.gameEnd(this);
     }
 
-    def op(player: ServerClient, action: => Unit, dispatchMsg: xml.Node): Boolean =
+    private def op(player: ServerClient, action: => Unit, dispatchMsg: xml.Node): Boolean =
         op(player, action, dispatchMsg, true)
 
-    def op(player: ServerClient, action: => Unit, dispatchMsg: xml.Node, checkConditions: Boolean): Boolean = {
+    private def op(player: ServerClient, action: => Unit, dispatchMsg: xml.Node, checkConditions: Boolean): Boolean = {
         val oppUsername = otherplayer(player).username
 
         if (checkConditions && (player == host && game.turn != White || player != host && game.turn != Black)) {
@@ -92,6 +67,27 @@ class ServerGame(val server: Server, val host: ServerClient, val opponent: Serve
             }
         }
     }
+
+    def inviteaccept: Result[_ <: Game] = started match {
+        case true =>
+            Failure("This game has already started")
+        case false =>
+            host.send(<chess username={ opponent.username }><inviteaccept /></chess>)
+            started = true
+            game = game.start
+            Success(game)
+    }
+
+    def invitedecline: Result[_ <: Game] = started match {
+        case true =>
+            Failure("This game has already started")
+        case false =>
+            host.send(<chess username={ opponent.username }><invitedecline /></chess>)
+            started = true
+            game = game.resign(Black)
+            Success(game)
+    }
+
 
     def timers(player: ServerClient) = {
         player.send(<chess username={ otherplayer(player).username }><timers white={ game.timers._1.toString } black={ game.timers._2.toString } /></chess>)

@@ -16,12 +16,13 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
     var status: ClientStatus = Annonymous
     var username: String = ""
     var userid: Int = -1
-    var games = new HashMap[String, ServerGame]()
+
+    private var games = new HashMap[String, ServerGame]()
 
     private val in = new BufferedReader(new InputStreamReader(sock.getInputStream()))
     private val out =  new PrintWriter(new OutputStreamWriter(sock.getOutputStream()))
 
-    val salt: String = {
+    private val salt: String = {
         UUID.randomUUID.toString
     }
 
@@ -55,9 +56,9 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
         //_game = None
     }
 
-    def userlog = if (status != Annonymous) "["+username+"] " else "[@] "
+    private def userlog = if (status != Annonymous) "["+username+"] " else "[@] "
 
-    def parseLine(line: String): Boolean = {
+    private def parseLine(line: String): Boolean = {
         import scala.xml._
 
         println("< "+userlog+line);
@@ -178,7 +179,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                         val username = attr("username").toString
                         server.getGPS(username) match {
                             case Some(pos) =>
-                                val logged = server.users.get(username) match {
+                                val logged = server.user(username) match {
                                     case Some(x) => "yes"
                                     case None => "no"
                                 }
@@ -195,7 +196,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                 val username = attr("username").toString;
                 data match {
                     case Elem(_, "msg", _, _, data) =>
-                        server.users.get(username) match {
+                        server.user(username) match {
                             case Some(u) if !(this.username equals username) =>
                                 u.send(<chat username={ this.username }><msg>{ data.toString }</msg></chat>);
                                 sendChatAck(u.username)
@@ -213,7 +214,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                 false
             case Elem(_, label, attr, _, data) if status == Logged && attr.get("username") != None =>
                 val username = attr("username").toString;
-                server.users.get(username) match {
+                server.user(username) match {
                     case Some(u) if !(this.username equals username) =>
                         u.send("<"+label+" username=\""+username+"\">"+data.toString+"</"+label+">");
                         send("<"+label+" username=\""+username+"\"><ack /></"+label+">");
@@ -247,6 +248,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
     def sendNack(msg: String) = send(<nack msg={ msg } />)
 
     def send(msg: xml.Node): Unit = send(msg.toString)
+
     def send(msg: String): Unit = {
         println("> "+userlog+msg)
         out.println(msg)
