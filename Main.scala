@@ -8,7 +8,7 @@ object Main {
             usage
         } else {
             val s = new Server(new Config(args(0)));
-            s.start
+            s.init
         }
     }
 

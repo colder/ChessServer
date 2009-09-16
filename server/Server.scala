@@ -6,7 +6,10 @@ import scala.collection.mutable.{HashMap,HashSet}
 import database._
 import java.sql.SQLException
 
-class Server(cfg: Config) {
+import scala.actors.Actor
+import scala.actors.Actor._
+
+class Server(cfg: Config) extends Actor {
     private val serverSocket = new ServerSocket(cfg.hostPort)
 
     /* Stores every logged users: username->client */
@@ -24,13 +27,12 @@ class Server(cfg: Config) {
     /* Server port */
     private val port = cfg.hostPort
 
-    def start = {
+    private def listen = {
         println("Listening to port "+port+"...");
-        init
         while(true) ServerClient(this, serverSocket.accept())
     }
 
-    def login(client: ServerClient, username: String, challenge: String, seed: String): Result[_ <: Int] = {
+    private def login(client: ServerClient, username: String, challenge: String, seed: String): Result[_ <: Int] = {
         try {
             val stmt = db.prepareStatement("SELECT id, password, logged_in FROM users WHERE username = ?", username)
             val results = stmt.executeQuery
@@ -63,7 +65,7 @@ class Server(cfg: Config) {
         }
     }
 
-    def logout(client: ServerClient) = {
+    private def logout(client: ServerClient) = {
         if (client.userid > 0) {
             try {
                 db.prepareStatement("UPDATE users SET logged_in = 'no' WHERE id = ?", client.userid).executeUpdate
@@ -72,12 +74,14 @@ class Server(cfg: Config) {
                     println("Woops: "+ex);
             }
         }
-        users -= client.username
-        players(client.username).foreach { _ ! Resign(client) }
-        players -= client.username
+        if (client.userid > 0) {
+            users -= client.username
+            players(client.username).foreach { _ ! Resign(client) }
+            players -= client.username
+        }
     }
 
-    def create(client: ServerClient, player: String, timers: Long): Result[_ <: (ServerGame, ServerClient)] = {
+    private def create(client: ServerClient, player: String, timers: Long): Result[_ <: (ServerGame, ServerClient)] = {
         if (games.get((player, client.username)) != None || games.get((player, client.username)) != None) {
             Failure("Already playing against "+player+"!")
         } else if (player equals client.username) {
@@ -91,6 +95,8 @@ class Server(cfg: Config) {
                     players(client.username) += game
                     players(opp.username) += game
 
+                    opp ! OnGameInvite(game)
+
                     Success((game, opp))
                 case None =>
                     Failure("Opponent not found")
@@ -98,57 +104,32 @@ class Server(cfg: Config) {
         }
     }
 
-    def user(username: String) = users.get(username)
-
-    def inviteaccept(client: ServerClient, host: String): Result[_ <: ServerGame] = {
-        games.get((host, client.username)) match {
-            case Some(g) =>
-                (g !? InviteAccept) match {
-                    case s: Success[_] =>
-                        Success(g)
-                    case f: Failure =>
-                        f
-                }
-            case None =>
-                Failure("Game not found")
-        }
-    }
-
-    def invitedecline(client: ServerClient, host: String): Result[_ <: ServerGame] = {
-        games.get((host, client.username)) match {
-            case Some(g) =>
-                (g !? InviteDecline) match {
-                    case Success(_) =>
-                        gameEnd(g)
-                        Success(g)
-                    case f: Failure =>
-                        f
-                }
-            case None =>
-                Failure("Game not found")
-        }
-    }
-
-    def leave(client: ServerClient) = {
+    private def leave(client: ServerClient) = {
         if (client.status == Logged) {
             logout(client)
         }
     }
 
-    def gameEnd(servergame: ServerGame) = {
+    private def gameEnd(servergame: ServerGame) = {
         val hostUsername = servergame.host.username
         val oppUsername = servergame.opponent.username
 
-        players(hostUsername) -= servergame
-        players(oppUsername) -= servergame
+        if (users contains hostUsername) {
+            players(hostUsername) -= servergame
+            servergame.host ! OnGameEnd(servergame)
+        }
 
-        servergame.host.onGameEnd(servergame)
-        servergame.opponent.onGameEnd(servergame)
+        if (users contains oppUsername) {
+            players(oppUsername) -= servergame
+            servergame.opponent ! OnGameEnd(servergame)
+        }
 
         games -= ((hostUsername, oppUsername))
+
+        servergame ! CloseGame
     }
 
-    def registerGPS(client: ServerClient, long: Int, lat: Int) = {
+    private def registerGPS(client: ServerClient, long: Int, lat: Int) = {
         try {
             db.prepareStatement("""INSERT INTO gps_positions
                                          SET id_user = ?,
@@ -161,7 +142,7 @@ class Server(cfg: Config) {
         }
     }
 
-    def getGPS(username: String): Option[GPSPosition] = {
+    private def getGPS(username: String): Option[GPSPosition] = {
         try {
             val stmt = db.prepareStatement("""SELECT longitude, latitude
                                                 FROM gps_positions gp, users u
@@ -186,23 +167,14 @@ class Server(cfg: Config) {
         }
     }
 
-    def logChatMessage(from: ServerClient, to: ServerClient, msg: String) = {
-        try {
-            db.prepareStatement("""INSERT INTO chat
-                                         SET id_user_from = ?,
-                                             id_user_to = ?,
-                                             date = NOW(),
-                                             message = ?""", from.userid, to.userid, msg).executeUpdate
-        } catch {
-            case ex: SQLException =>
-                println("Woops: "+ex);
-        }
-    }
-
     def init = {
         Runtime.getRuntime().addShutdownHook(new Thread {
             override def run = shutdown
         })
+
+        start
+
+        listen
     }
 
     def shutdown = {
@@ -210,7 +182,53 @@ class Server(cfg: Config) {
         println("Shutting down gracefully..")
         users map { u => leave(u._2) }
     }
+
+    def act() {
+        loop {
+            receive {
+                case LogChatMessage(from, to, msg) =>
+                    try {
+                        db.prepareStatement("""INSERT INTO chat
+                                                     SET id_user_from = ?,
+                                                         id_user_to = ?,
+                                                         date = NOW(),
+                                                         message = ?""", from.userid, to.userid, msg).executeUpdate
+                    } catch {
+                        case ex: SQLException =>
+                            println("Woops: "+ex);
+                    }
+                case GetUser(username) =>
+                    reply(users.get(username))
+                case GameEnd(game) =>
+                    gameEnd(game)
+                case Leave(client) =>
+                    leave(client)
+                case RegisterGPS(client, long, lat) =>
+                    registerGPS(client, long, lat)
+                case GetGPS(username) =>
+                    reply(getGPS(username))
+                case Login(client, username, challenge, salt) =>
+                    reply(login(client, username, challenge, salt))
+                case Logout(client) =>
+                    logout(client)
+                case Create(client, username, timers) =>
+                    reply(create(client, username, timers))
+            }
+        }
+    }
 }
+
+abstract class ServerCommand;
+
+case class LogChatMessage(from: ServerClient, to: ServerClient, msg: String) extends ServerCommand
+case class GetUser(username: String) extends ServerCommand
+case class GameEnd(game: ServerGame) extends ServerCommand
+case class Leave(client: ServerClient) extends ServerCommand
+case class Login(client: ServerClient, username: String, challenge: String, salt: String) extends ServerCommand
+case class Create(client: ServerClient, username: String, timers: Long) extends ServerCommand
+case class Logout(client: ServerClient) extends ServerCommand
+case class RegisterGPS(client: ServerClient, long: Int, lat: Int) extends ServerCommand
+case class GetGPS(username: String) extends ServerCommand
 
 case class ServerException(msg: String) extends RuntimeException(msg)
 
