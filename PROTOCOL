@@ -1,7 +1,6 @@
 ==== Client States ====
  1) Init:       When logged out
  2) Logged:     When logged to the server but not playing
- 3) Playing:    When logged and playing a chess game
 
 
 ==== Arguments types ====

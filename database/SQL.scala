@@ -8,8 +8,21 @@ abstract class SQLConnection {
     var conn: Option[java.sql.Connection];
     def connect;
 
+    def prepareCheck(conn: java.sql.Connection, sql: String) = {
+        try {
+            conn.prepareStatement(sql)
+        } catch  {
+            case se: SQLException if se.getErrorCode == 2006 =>
+                // Server has gone away, reconnect
+                println("! Reconnecting...")
+                connect
+                conn.prepareStatement(sql)
+            case e => throw e
+        }
+    }
+
     def prepareStatement(sql: String): SQLStatement = conn match {
-        case Some(x) => new SQLStatement(x.prepareStatement(sql))
+        case Some(c) => new SQLStatement(prepareCheck(c, sql))
         case None => throw new Exception("No connection")
     }
 
@@ -17,7 +30,7 @@ abstract class SQLConnection {
         checkConnection
 
         val stmt = conn match {
-            case Some(x) => x.prepareStatement(sql)
+            case Some(c) => prepareCheck(c, sql)
             case None => throw new Exception("No connection")
         }
 
