@@ -1,8 +1,10 @@
 package ChessServer.server
 
-class ServerGame(val server: Server, val host: ServerClient, val opponent: ServerClient, val ts: Long) {
-    import logic._
+import scala.actors.Actor
+import scala.actors.Actor._
+import logic.{PieceType,Position,Game}
 
+class ServerGame(val server: Server, val host: ServerClient, val opponent: ServerClient, val ts: Long) extends Actor {
     private var game = new Game(ts)
 
     private var started = false
@@ -15,11 +17,11 @@ class ServerGame(val server: Server, val host: ServerClient, val opponent: Serve
     private def end = {
         // dispatch the game ending status to both players
         val msg: Option[String => xml.Node] = game.status match {
-            case GameWinBlack =>
+            case logic.GameWinBlack =>
                 Some(from => <chess username={ from }><end winner="black" /></chess>)
-            case GameWinWhite =>
+            case logic.GameWinWhite =>
                 Some(from => <chess username={ from }><end winner="white" /></chess>)
-            case GameDraw =>
+            case logic.GameDraw =>
                 Some(from => <chess username={ from }><draw /></chess>)
             case _ =>
                 None
@@ -41,7 +43,7 @@ class ServerGame(val server: Server, val host: ServerClient, val opponent: Serve
     private def op(player: ServerClient, action: => Unit, dispatchMsg: xml.Node, checkConditions: Boolean): Boolean = {
         val oppUsername = otherplayer(player).username
 
-        if (checkConditions && (player == host && game.turn != White || player != host && game.turn != Black)) {
+        if (checkConditions && (player == host && game.turn != logic.White || player != host && game.turn != logic.Black)) {
             player.sendChessNack(oppUsername ,"Wait your turn!");
             false
         } else if ( checkConditions && started == false) {
@@ -54,62 +56,76 @@ class ServerGame(val server: Server, val host: ServerClient, val opponent: Serve
 
                 // Check the status of the game
                 game.status match {
-                    case _ : GameEnded =>
+                    case _ : logic.GameEnded =>
                         end
                     case _ =>
                         dispatch(player, dispatchMsg)
                 }
                 true
             } catch {
-                case ge: GameException =>
+                case ge: logic.GameException =>
                     player.sendChessNack(oppUsername, ge.getMessage)
                     false
             }
         }
     }
 
-    def inviteaccept: Result[_ <: Game] = started match {
-        case true =>
-            Failure("This game has already started")
-        case false =>
-            host.send(<chess username={ opponent.username }><inviteaccept /></chess>)
-            started = true
-            game = game.start
-            Success(game)
+    def act() {
+        loop {
+            receive {
+                case InviteAccept =>
+                    started match {
+                        case true =>
+                            reply(Failure("This game has already started"))
+                        case false =>
+                            host.send(<chess username={ opponent.username }><inviteaccept /></chess>)
+                            started = true
+                            game = game.start
+                            reply(Success(game))
+                    }
+                case InviteDecline =>
+                    started match {
+                        case true =>
+                            reply(Failure("This game has already started"))
+                        case false =>
+                            host.send(<chess username={ opponent.username }><invitedecline /></chess>)
+                            started = true
+                            game = game.resign(logic.Black)
+                            reply(Success(game))
+                    }
+                case Timers(player) =>
+                    player.send(<chess username={ otherplayer(player).username }><timers white={ game.timers._1.toString } black={ game.timers._2.toString } /></chess>)
+                case Move(player, from, to) =>
+                    op(player, game = game.move(from, to), <chess username={ player.username }><move from={ from.algNotation } to={ to.algNotation } /></chess>)
+                case MovePromote(player, from, to, pt) =>
+                    op(player, game = game.move(from, to), <chess username={ player.username }><move from={ from.algNotation } to={ to.algNotation } promotion={ pt.ab } /></chess>)
+                case Resign(player) =>
+                    op(player, game = game.resign(if (player == host) logic.White else logic.Black), <chess username={ player.username }><resign /></chess>, false) // ignore turn
+                case DrawAsk(player) =>
+                    op(player, game = game.drawAsk, <chess username={ player.username }><drawAsk /></chess>)
+                case DrawAccept(player) =>
+                    op(player, game = game.drawAccept, <chess username={ player.username }><drawaccept /></chess>)
+                case DrawDecline(player) =>
+                    op(player, game = game.drawDecline, <chess username={ player.username }><drawdecline /></chess>)
+                case m =>
+                    println("Whooot?? "+ m)
+            }
+        }
     }
 
-    def invitedecline: Result[_ <: Game] = started match {
-        case true =>
-            Failure("This game has already started")
-        case false =>
-            host.send(<chess username={ opponent.username }><invitedecline /></chess>)
-            started = true
-            game = game.resign(Black)
-            Success(game)
-    }
-
-
-    def timers(player: ServerClient) = {
-        player.send(<chess username={ otherplayer(player).username }><timers white={ game.timers._1.toString } black={ game.timers._2.toString } /></chess>)
-    }
-
-    def move(player: ServerClient, from: Position, to: Position) =
-        op(player, game = game.move(from, to), <chess username={ player.username }><move from={ from.algNotation } to={ to.algNotation } /></chess>)
-
-    def moveAndPromote(player: ServerClient, from: Position, to: Position, promotion: PieceType) =
-        op(player, game = game.move(from, to), <chess username={ player.username }><move from={ from.algNotation } to={ to.algNotation } promotion={ promotion.ab } /></chess>)
-
-    def resign(player: ServerClient) =
-        op(player, game = game.resign(if (player == host) White else Black), <chess username={ player.username }><resign /></chess>, false) // ignore turn
-
-    def drawAsk(player: ServerClient) =
-        op(player, game = game.drawAsk, <chess username={ player.username }><drawAsk /></chess>)
-
-    def drawAccept(player: ServerClient) =
-        op(player, game = game.drawAccept, <chess username={ player.username }><drawaccept /></chess>)
-
-    def drawDecline(player: ServerClient) =
-        op(player, game = game.drawDecline, <chess username={ player.username }><drawdecline /></chess>)
+    start
 }
+
+abstract class ServerGameCommand;
+case object InviteAccept extends ServerGameCommand
+case object InviteDecline extends ServerGameCommand
+case class  Timers(player: ServerClient) extends ServerGameCommand
+case class  Move(player: ServerClient, from: Position, to: Position) extends ServerGameCommand
+case class  MovePromote(player: ServerClient, from: Position, to: Position, pt: PieceType) extends ServerGameCommand
+case class  Resign(player: ServerClient) extends ServerGameCommand
+case class  DrawAsk(player: ServerClient) extends ServerGameCommand
+case class  DrawAccept(player: ServerClient) extends ServerGameCommand
+case class  DrawDecline(player: ServerClient) extends ServerGameCommand
+
 
 case class ProtocolException(msg: String) extends RuntimeException(msg)

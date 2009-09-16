@@ -73,7 +73,7 @@ class Server(cfg: Config) {
             }
         }
         users -= client.username
-        players(client.username).foreach { _.resign(client) }
+        players(client.username).foreach { _ ! Resign(client) }
         players -= client.username
     }
 
@@ -103,8 +103,12 @@ class Server(cfg: Config) {
     def inviteaccept(client: ServerClient, host: String): Result[_ <: ServerGame] = {
         games.get((host, client.username)) match {
             case Some(g) =>
-                g.inviteaccept
-                Success(g)
+                (g !? InviteAccept) match {
+                    case s: Success[_] =>
+                        Success(g)
+                    case f: Failure =>
+                        f
+                }
             case None =>
                 Failure("Game not found")
         }
@@ -113,9 +117,13 @@ class Server(cfg: Config) {
     def invitedecline(client: ServerClient, host: String): Result[_ <: ServerGame] = {
         games.get((host, client.username)) match {
             case Some(g) =>
-                g.invitedecline
-                gameEnd(g)
-                Success(g)
+                (g !? InviteDecline) match {
+                    case Success(_) =>
+                        gameEnd(g)
+                        Success(g)
+                    case f: Failure =>
+                        f
+                }
             case None =>
                 Failure("Game not found")
         }
@@ -198,6 +206,7 @@ class Server(cfg: Config) {
     }
 
     def shutdown = {
+        println
         println("Shutting down gracefully..")
         users map { u => leave(u._2) }
     }

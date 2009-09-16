@@ -132,7 +132,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                         }
 
                     case (Some(game), Elem(_, "move", attr, _)) if (attr.get("from") != None && attr.get("to") != None) =>
-                        game.move(this, new Position(attr("from").toString), new Position(attr("to").toString))
+                        game ! Move(this, new Position(attr("from").toString), new Position(attr("to").toString))
 
                     case (Some(game), Elem(_, "movepromote", attr, _)) if (attr.get("from") != None && attr.get("to") != None && attr.get("promotion") != None) =>
                         def parsePromotion(str: String): Result[_ <: PieceType] = str.toUpperCase match {
@@ -145,7 +145,7 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
 
                         parsePromotion(attr("promotion").toString) match {
                             case Success(pt) =>
-                                game.moveAndPromote(this,
+                                game ! MovePromote(this,
                                                     new Position(attr("from").toString),
                                                     new Position(attr("to").toString),
                                                     pt)
@@ -153,16 +153,16 @@ case class ServerClient(server: Server, sock: Socket) extends Thread {
                                 sendChessNack(username, msg);
                         }
                     case (Some(game), Elem(_, "resign", _, _)) =>
-                            game.resign(this)
+                            game ! Resign(this)
                             games -= username
                     case (Some(game), Elem(_, "drawask", _, _)) =>
-                            game.drawAsk(this);
+                            game ! DrawAsk(this);
                     case (Some(game), Elem(_, "drawaccept", _, _)) =>
-                            game.drawAccept(this);
+                            game ! DrawAccept(this);
                     case (Some(game), Elem(_, "drawdecline", _, _)) =>
-                            game.drawDecline(this);
+                            game ! DrawDecline(this);
                     case (Some(game), Elem(_, "timers", _, _)) =>
-                            game.timers(this);
+                            game ! Timers(this);
                     case (Some(game), _) =>
                         sendChessNack(username, "Unknown  or invalid chess command. Maybe the parameters?");
                     case (None, _) =>
