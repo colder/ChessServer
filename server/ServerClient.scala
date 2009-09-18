@@ -288,7 +288,6 @@ case class ServerClient(server: Server, sock: Socket) extends Actor {
 
             }
         }
-        println("ServerClient Actor terminating...")
     }
 
     listener.start
