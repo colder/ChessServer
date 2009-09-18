@@ -114,7 +114,6 @@ class ServerGame(val server: Server, val host: ServerClient, val opponent: Serve
             }
         }
 
-        println("ServerGame Actor terminating...")
     }
 
     start
