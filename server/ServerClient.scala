@@ -52,7 +52,7 @@ case class ServerClient(server: Server, sock: Socket) extends Actor {
                 }
             }
 
-            server ! Leave(ServerClient.this)
+            server !? Leave(ServerClient.this)
 
             ServerClient.this ! CloseClient
 
@@ -92,7 +92,7 @@ case class ServerClient(server: Server, sock: Socket) extends Actor {
                     case Elem(_, "logout", attr, _) =>
                         if (status == Logged) {
                             status = Annonymous
-                            server ! Logout(this)
+                            server !? Logout(this)
                             userid = -1
                             sendAuthAck
                         }
@@ -219,7 +219,7 @@ case class ServerClient(server: Server, sock: Socket) extends Actor {
                 true
             case <quit /> =>
                 status = Annonymous
-                server ! Logout(this)
+                server !? Logout(this)
                 false
             case Elem(_, label, attr, _, data) if status == Logged && attr.get("username") != None =>
                 val username = attr("username").toString;

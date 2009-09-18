@@ -73,11 +73,14 @@ class Server(cfg: Config) extends Actor {
                 case ex: SQLException =>
                     println("Woops: "+ex);
             }
-        }
-        if (client.userid > 0) {
+
             users -= client.username
             players(client.username).foreach { _ ! Resign(client) }
             players -= client.username
+
+            true
+        } else {
+            false
         }
     }
 
@@ -202,7 +205,7 @@ class Server(cfg: Config) extends Actor {
                 case GameEnd(game) =>
                     gameEnd(game)
                 case Leave(client) =>
-                    leave(client)
+                    reply(leave(client))
                 case RegisterGPS(client, long, lat) =>
                     registerGPS(client, long, lat)
                 case GetGPS(username) =>
@@ -210,7 +213,7 @@ class Server(cfg: Config) extends Actor {
                 case Login(client, username, challenge, salt) =>
                     reply(login(client, username, challenge, salt))
                 case Logout(client) =>
-                    logout(client)
+                    reply(logout(client))
                 case Create(client, username, timers) =>
                     reply(create(client, username, timers))
             }
