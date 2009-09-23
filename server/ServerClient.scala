@@ -62,7 +62,7 @@ case class ServerClient(server: Server, sock: Socket) extends Actor {
 
     private def userlog = if (status != Annonymous) "["+username+"] " else "[@] "
 
-    private def parseLine(line: String): Boolean = {
+    private def parseLine(line: String): Boolean = try {
         import scala.xml._
 
         println("< "+userlog+line);
@@ -240,6 +240,10 @@ case class ServerClient(server: Server, sock: Socket) extends Actor {
                 sendAuthNack("Login first")
                 true
         }
+    } catch {
+        case e: org.xml.sax.SAXParseException =>
+            sendNack("Invalid xml message: "+e.getMessage)
+            true
     }
 
     private def sendGPSNack(msg: String) = send(<gps><nack msg={ msg } /></gps>)
