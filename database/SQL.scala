@@ -22,7 +22,7 @@ abstract class SQLConnection {
     }
 
     def prepareStatement(sql: String): SQLStatement = conn match {
-        case Some(c) => new SQLStatement(prepareCheck(c, sql))
+        case Some(c) => new SQLStatement(this, prepareCheck(c, sql))
         case None => throw new Exception("No connection")
     }
 
@@ -59,7 +59,7 @@ abstract class SQLConnection {
             }
         }
 
-        new SQLStatement(stmt)
+        new SQLStatement(this, stmt)
     }
 
     def close = conn match {
@@ -90,10 +90,34 @@ abstract class SQLConnection {
     }
 }
 
-class SQLStatement(stmt: PreparedStatement) {
-    def executeQuery = new SQLResultSet(stmt.executeQuery)
-    def executeUpdate = stmt.executeUpdate
-    def close = stmt.close
+class SQLStatement(conn: SQLConnection, stmt: PreparedStatement) {
+    def executeQuery =
+        try {
+            new SQLResultSet(stmt.executeQuery)
+        } catch {
+            case e: java.io.EOFException =>
+                println("! Reconnecting...")
+                conn.connect
+                new SQLResultSet(stmt.executeQuery)
+        }
+    def executeUpdate =
+        try {
+            stmt.executeUpdate
+        } catch {
+            case e: java.io.EOFException =>
+                println("! Reconnecting...")
+                conn.connect
+                stmt.executeUpdate
+        }
+    def close =
+        try {
+            stmt.close
+        } catch {
+            case e: java.io.EOFException =>
+                println("! Reconnecting...")
+                conn.connect
+                stmt.close
+        }
 }
 
 class SQLResultSet(set: ResultSet) {
