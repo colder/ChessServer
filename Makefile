@@ -7,5 +7,8 @@ scalafiles:
 run-server: scalafiles
 	scala -cp classes:${libs} ChessServer.Main config-run.xml
 
+only-run-server:
+	scala -cp classes:${libs} ChessServer.Main config-run.xml
+
 run-client: scalafiles
 	scala -cp classes:${libs} ChessServer.MainClient
