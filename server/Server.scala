@@ -24,11 +24,14 @@ class Server(cfg: Config) extends Actor {
     /* Database connection */
     private val db = new MysqlConnection(cfg.dbDatabase, cfg.dbUser, cfg.dbPass)
 
+    /* Logger */
+    val log = new TerminalLogger
+
     /* Server port */
     private val port = cfg.hostPort
 
     private def listen = {
-        println("Listening to port "+port+"...");
+        log.info("Listening to port "+port+"...");
         while(true) ServerClient(this, serverSocket.accept())
     }
 
@@ -71,7 +74,7 @@ class Server(cfg: Config) extends Actor {
                 db.prepareStatement("UPDATE users SET logged_in = 'no' WHERE id = ?", client.userid).executeUpdate
             } catch {
                 case ex: SQLException =>
-                    println("Woops: "+ex);
+                    log.err("Woops: "+ex);
             }
 
             users -= client.username
@@ -141,7 +144,7 @@ class Server(cfg: Config) extends Actor {
                                              date = NOW()""", client.userid, long, lat).executeUpdate
         } catch {
             case ex: SQLException =>
-                println("Woops: "+ex);
+                log.err("Woops: "+ex);
         }
     }
 
@@ -165,7 +168,7 @@ class Server(cfg: Config) extends Actor {
             retval
         } catch {
             case ex: SQLException =>
-                println("Woops: "+ex);
+                log.err("Woops: "+ex);
                 None
         }
     }
@@ -181,8 +184,7 @@ class Server(cfg: Config) extends Actor {
     }
 
     def shutdown = {
-        println
-        println("Shutting down gracefully..")
+        log.warn("Shutting down gracefully..")
         users map { u => leave(u._2) }
     }
 
@@ -198,7 +200,7 @@ class Server(cfg: Config) extends Actor {
                                                          message = ?""", from.userid, to.userid, msg).executeUpdate
                     } catch {
                         case ex: SQLException =>
-                            println("Woops: "+ex);
+                            log.err("Woops: "+ex);
                     }
                 case GetUser(username) =>
                     reply(users.get(username))

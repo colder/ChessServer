@@ -16,6 +16,7 @@ import scala.actors.Actor
 import scala.actors.Actor._
 
 case class ServerClient(server: Server, sock: Socket) extends Actor {
+    val log = server.log
     var status: ClientStatus = Annonymous
     var username: String = ""
     var userid: Int = -1
@@ -28,11 +29,15 @@ case class ServerClient(server: Server, sock: Socket) extends Actor {
         UUID.randomUUID.toString
     }
 
+    private def log(msg: String) = {
+
+    }
+
     private val listener = new Thread() {
         private val in = new BufferedReader(new InputStreamReader(sock.getInputStream()))
 
         override def run = {
-            println("Client connected!");
+            log.info("Client connected!");
 
             send(<hello salt={ salt } />)
 
@@ -47,7 +52,7 @@ case class ServerClient(server: Server, sock: Socket) extends Actor {
                     }
                 } catch {
                     case e =>
-                        println("! "+e)
+                        log.err(e.toString)
                         continue = false;
                 }
             }
@@ -56,7 +61,8 @@ case class ServerClient(server: Server, sock: Socket) extends Actor {
 
             ServerClient.this ! CloseClient
 
-            println("Client disconnected!");
+            in.close
+            log.info("Client disconnected!");
         }
     }
 
@@ -65,7 +71,7 @@ case class ServerClient(server: Server, sock: Socket) extends Actor {
     private def parseLine(line: String): Boolean = try {
         import scala.xml._
 
-        println("< "+userlog+line);
+        log.in(userlog+line);
         val data = XML.loadString(line)
 
         data match {
@@ -263,7 +269,7 @@ case class ServerClient(server: Server, sock: Socket) extends Actor {
     private def send(msg: xml.Node): Unit = send(msg.toString)
 
     private def send(msg: String): Unit = {
-        println("> "+userlog+msg)
+        log.out(userlog+msg)
         out.println(msg)
         out.flush
     }
@@ -292,6 +298,8 @@ case class ServerClient(server: Server, sock: Socket) extends Actor {
 
             }
         }
+
+        out.close
     }
 
     listener.start
