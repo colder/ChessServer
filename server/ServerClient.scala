@@ -29,10 +29,6 @@ case class ServerClient(server: Server, sock: Socket) extends Actor {
         UUID.randomUUID.toString
     }
 
-    private def log(msg: String) = {
-
-    }
-
     private val listener = new Thread() {
         private val in = new BufferedReader(new InputStreamReader(sock.getInputStream()))
 
@@ -209,18 +205,24 @@ case class ServerClient(server: Server, sock: Socket) extends Actor {
                 true
             case Elem(_, "chat", attr, _, data) if status == Logged && (attr.get("username") != None) =>
                 val username = attr("username").toString;
-                data match {
-                    case Elem(_, "msg", _, _, data) =>
-                        server !? GetUser(username) match {
-                            case Some(u: ServerClient) if !(this.username equals username) =>
+                server !? GetUser(username) match {
+                    case Some(u: ServerClient) if !(this.username equals username) =>
+                        data match {
+                            case Elem(_, "msg", _, _, data) =>
                                 u.send(<chat username={ this.username }><msg>{ data.toString }</msg></chat>);
                                 sendChatAck(u.username)
                                 server ! LogChatMessage(this, u, data.toString)
-                            case Some(u: ServerClient) =>
-                                sendChatNack(u.username, "Cannot send messages to yourself")
-                            case None =>
-                                sendChatNack(username, "Username '"+username+"' not found")
+                            case Elem(_, "msg", _, _) =>
+                                u.send(<chat username={ this.username }><msg></msg></chat>);
+                                sendChatAck(u.username)
+                                server ! LogChatMessage(this, u, data.toString)
+                            case _ =>
+                                sendChatNack(u.username, "Invalid chat command")
                         }
+                    case Some(u: ServerClient) =>
+                        sendChatNack(u.username, "Cannot send messages to yourself")
+                    case None =>
+                        sendChatNack(username, "Username '"+username+"' not found")
                 }
                 true
             case <quit /> =>
