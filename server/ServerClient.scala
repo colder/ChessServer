@@ -36,6 +36,7 @@ case class ServerClient(server: Server, sock: Socket) extends Actor {
             log.info("Client connected!");
 
             send(<hello salt={ salt } />)
+            sock.setSoTimeout(1000*60*20)
 
             var continue = true;
             while (continue) {
@@ -47,6 +48,9 @@ case class ServerClient(server: Server, sock: Socket) extends Actor {
                         continue = parseLine(line);
                     }
                 } catch {
+                    case e: java.net.SocketTimeoutException =>
+                        log.err("Client timeout")
+                        continue = false
                     case e =>
                         log.err(e.toString)
                         continue = false;
