@@ -233,11 +233,11 @@ case class ServerClient(server: Server, sock: Socket) extends Actor {
                 status = Annonymous
                 server !? Logout(this)
                 false
-            case Elem(_, label, attr, _, data) if status == Logged && attr.get("username") != None =>
+            case Elem(_, label, attr, _, data @ _*) if status == Logged && attr.get("username") != None =>
                 val username = attr("username").toString;
                 server !? GetUser(username) match {
                     case Some(u: ServerClient) if !(this.username equals username) =>
-                        u.send("<"+label+" username=\""+username+"\">"+data.toString+"</"+label+">");
+                        u.send("<"+label+" username=\""+username+"\">"+data.mkString+"</"+label+">");
                         send("<"+label+" username=\""+username+"\"><ack /></"+label+">");
                     case Some(u: ServerClient) =>
                         send("<"+label+" username=\""+username+"\"><nack msg=\"Can't send to yourself\" /></"+label+">");
