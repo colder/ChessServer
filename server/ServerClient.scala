@@ -237,7 +237,7 @@ case class ServerClient(server: Server, sock: Socket) extends Actor {
                 val username = attr("username").toString;
                 server !? GetUser(username) match {
                     case Some(u: ServerClient) if !(this.username equals username) =>
-                        u.send("<"+label+" username=\""+username+"\">"+data.mkString+"</"+label+">");
+                        u.send("<"+label+" username=\""+this.username+"\">"+data.mkString+"</"+label+">");
                         send("<"+label+" username=\""+username+"\"><ack /></"+label+">");
                     case Some(u: ServerClient) =>
                         send("<"+label+" username=\""+username+"\"><nack msg=\"Can't send to yourself\" /></"+label+">");
