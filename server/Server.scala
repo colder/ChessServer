@@ -153,7 +153,7 @@ class Server(cfg: Config) extends Actor {
             val stmt = db.prepareStatement("""SELECT longitude, latitude
                                                 FROM gps_positions gp, users u
                                                WHERE id_user = u.id AND u.username = ?
-                                            ORDER BY date DESC
+                                            ORDER BY date DESC, gp.id DESC
                                                LIMIT 1""", username)
             val results = stmt.executeQuery
 
