@@ -101,6 +101,8 @@ case class ServerClient(server: Server, sock: Socket) extends Actor {
                             server !? Logout(this)
                             userid = -1
                             sendAuthAck
+                        } else {
+                            sendAuthAck
                         }
                     case _ =>
                         sendAuthNack("Unknown games command");
