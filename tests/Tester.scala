@@ -293,10 +293,10 @@ object Tester {
         ("e6", "f6"),
         ("f3", "g3"),
         ("f6", "g6"),
-        ("g3", "h3"),
-        ("g6", "h6"),
         ("a3", "c4"),
         ("a6", "c5"),
+        ("g3", "h3"),
+        ("g6", "h6"),
         ("h3", "a3"),
         ("h6", "a6"),
         ("a3", "b3"),
@@ -325,10 +325,10 @@ object Tester {
         ("d6", "e6"),
         ("e3", "f3"),
         ("e6", "f6"),
-        ("f3", "g3"),
-        ("f6", "g6"),
         ("c4", "e5"),
         ("c5", "e4"),
+        ("f3", "g3"),
+        ("f6", "g6"),
         ("g3", "h3"),
         ("g6", "h6"),
         ("h3", "a3"),
@@ -350,6 +350,13 @@ object Tester {
         )
 
         runNormalTest("50moves2", moves, false)
+
+
+        if (!g.is3repetitions) {
+            println("[PASS] 50moves2 (valid state)")
+        } else {
+            println("[FAIL] 50moves2 (repetition detected)")
+        }
 
         if (!g.is50moves) {
             println("[PASS] 50moves2 (valid state)")
