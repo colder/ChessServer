@@ -57,7 +57,7 @@ case class Game(
 
     private def storeBoard: Game = {
         boards get board.serialize match {
-            case Some(i) => /*println("Updating "+board.serialize+" to "+(i+1)); */setBoards(boards + ((board.serialize, i+1)))
+            case Some(i) => /*println("Updating "+board.serialize+" to "+(i+1));*/ setBoards(boards + ((board.serialize, i+1)))
             case None => setBoards(boards + ((board.serialize, 1)))
         }
     }

@@ -381,7 +381,7 @@ object Tester {
             for (m <- moves) {
                 try {
                     g = g.move(Position(m._1), Position(m._2))
-                    println("Move "+m+" ok")
+                    //println("Move "+m+" ok")
                 } catch {
                     case e: Exception =>
                         throw new Exception("(move="+m+"):"+e.toString)
