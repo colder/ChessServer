@@ -7,7 +7,6 @@ import scala.collection.immutable.{HashMap,HashSet,Set,Map,TreeHashMap};
 /* immutable */
 case class Board(val slots: TreeHashMap[Position, Piece], val lastMove: Move) {
     type Slots = TreeHashMap[Position, Piece]
-
     /**
      * Public Board API
      */
@@ -112,6 +111,52 @@ case class Board(val slots: TreeHashMap[Position, Piece], val lastMove: Move) {
 
         val newSlots = Board.placePiece(removePiece(slots, pi), pi.color, typeTo, pi.pos);
         Board(newSlots, lastMove)
+    }
+
+    def serialize: String = {
+        var pieces: List[String] = Nil
+        for (i <- 1 to 8) {
+            for (j <- 1 to 8) {
+                slots.get(Position(i, j)) match {
+                    case Some(p) => val color = p.color.toString; pieces = pieces ::: color(0)+p.typ.ab+p.pos.algNotation :: Nil
+                    case None =>
+                }
+            }
+        }
+
+        val bs = pieces mkString ","
+
+        val wc = king(White).moved match {
+            case 0 =>
+                val lr = pieceAt(Position("a1")) match {
+                    case Some(Piece(White, Rook, _, 0)) => "y"
+                    case _ => "n"
+                }
+                val rr = pieceAt(Position("h1")) match {
+                    case Some(Piece(White, Rook, _, 0)) => "y"
+                    case _ => "n"
+                }
+
+                lr+rr
+
+            case _ => "nn"
+        }
+        val bc = king(Black).moved match {
+            case 0 =>
+                val lr = pieceAt(Position("a8")) match {
+                    case Some(Piece(Black, Rook, _, 0)) => "y"
+                    case _ => "n"
+                }
+                val rr = pieceAt(Position("h8")) match {
+                    case Some(Piece(Black, Rook, _, 0)) => "y"
+                    case _ => "n"
+                }
+
+                lr+rr
+            case _ => "nn"
+        }
+
+        bs + wc + bc
     }
 
     /**
@@ -223,7 +268,7 @@ case class Board(val slots: TreeHashMap[Position, Piece], val lastMove: Move) {
                 case Some(op) =>
                     MoveResult(newboard, true, false)
                 case None =>
-                    MoveResult(newboard, piece.typ == Pawn, true)
+                    MoveResult(newboard, piece.typ == Pawn, piece.typ != Pawn)
             }
         }
     }

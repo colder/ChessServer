@@ -20,13 +20,13 @@ case object GameWinWhite  extends GameEnded;
 case class Game(
     board: Board,
     turn: ChessTeam,
-    boards: Map[Board, Int],
+    boards: Map[String, Int],
     movesWithoutCapture: Int,
     status: GameStatus,
     times: (Long, Long),
     turnStartTime: Long) {
 
-    def this(d: Long) = this(Board.init, White, HashMap[Board, Int](), 0, GameInit, (d*60, d*60), System.currentTimeMillis/1000)
+    def this(d: Long) = this(Board.init, White, new HashMap[String, Int](), 0, GameInit, (d*60, d*60), System.currentTimeMillis/1000)
 
     private def now = System.currentTimeMillis/1000;
 
@@ -47,26 +47,26 @@ case class Game(
         Game(board, nextTurn, boards, movesWithoutCapture, nextStatus, nextTimes, now);
     }
 
-    private def setBoards(bs: Map[Board, Int]): Game =
+    private def setBoards(bs: Map[String, Int]): Game =
         Game(board, turn, bs, movesWithoutCapture, status, times, turnStartTime)
 
     private def setStatus(st: GameStatus): Game =
         Game(board, turn, boards, movesWithoutCapture, st, times, turnStartTime)
 
-    private def reinitBoards: Game = setBoards(HashMap[Board, Int]());
+    private def reinitBoards: Game = setBoards(HashMap[String, Int]());
 
     private def storeBoard: Game = {
-        boards get board match {
-            case Some(i) => setBoards(boards + ((board, i+1)))
-            case None => setBoards(boards + ((board, 1)))
+        boards get board.serialize match {
+            case Some(i) => /*println("Updating "+board.serialize+" to "+(i+1)); */setBoards(boards + ((board.serialize, i+1)))
+            case None => setBoards(boards + ((board.serialize, 1)))
         }
     }
 
     private def fromMoveResult(mr: MoveResult): Game = {
-        val newBoards = if(mr.reinitBoards) HashMap[Board, Int]() else boards
+        val newBoards = if(mr.reinitBoards) HashMap[String, Int]() else boards
         val newMovesWithoutCapture = if(mr.incMovesWC) movesWithoutCapture+1 else 1
 
-        Game(mr.board, turn, newBoards, newMovesWithoutCapture, status, times, turnStartTime)
+        Game(mr.board, turn, newBoards, newMovesWithoutCapture, status, times, turnStartTime).storeBoard
     }
 
     /* Interface to the clients */
@@ -83,7 +83,7 @@ case class Game(
     }
 
     def start: Game = if (status == GameInit) {
-        Game(board, turn, boards, movesWithoutCapture, GamePlaying, times, now)
+        Game(board, turn, boards, movesWithoutCapture, GamePlaying, times, now).storeBoard
     } else {
         throw GameException("Cannot start a game again: "+status);
     }
@@ -138,7 +138,7 @@ case class Game(
                             case Some(pi) =>
                                 Game(newGame.board.promote(pi, promotion),
                                      newGame.turn,
-                                     HashMap[Board, Int](),
+                                     HashMap[String, Int](),
                                      newGame.movesWithoutCapture,
                                      newGame.status,
                                      newGame.times,
@@ -200,7 +200,7 @@ case class Game(
     }
 
     def is3repetitions = boards.values exists { _ >= 3 }
-    def is50moves = movesWithoutCapture >= 50
+    def is50moves = movesWithoutCapture >= 99
 
     def isDrawCondition = {
         is50moves || is3repetitions || insufficientForCheckmate

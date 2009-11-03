@@ -32,6 +32,8 @@ object Position {
     def isValid(x: Int, y: Int) = x > 0 && x < 9 && y > 0 && y < 9
     def isValidOffset(p: Position, ox: Int, oy: Int) = isValid(p.x+ox, p.y+oy)
 
+    def apply(str: String): Position = new Position(str(0)-'a'+1, str(1)-'1'+1)
+
     /* returns the positions in the path between two slots */
     def path(from: Position, to: Position) = {
         def dx = if (from.x > to.x) -1 else if (from.x < to.x) 1 else 0;
