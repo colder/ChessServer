@@ -199,15 +199,14 @@ case class Game(
         }
     }
 
-    private def isDrawCondition = {
-        // check for draw conditions
-        val is3repetitions = boards.values exists { _ >= 3 }
-        val is50moves = movesWithoutCapture >= 50
+    def is3repetitions = boards.values exists { _ >= 3 }
+    def is50moves = movesWithoutCapture >= 50
 
+    def isDrawCondition = {
         is50moves || is3repetitions || insufficientForCheckmate
     }
 
-    private def insufficientForCheckmate = {
+    def insufficientForCheckmate = {
         // King vs King
         val kk = board.slots.size == 2
 
