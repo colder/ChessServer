@@ -152,24 +152,8 @@ object Tester {
         ("e6", "f6"),
         ("f3", "g3"),
         ("f6", "g6"),
-        ("g3", "h3"),
-        ("g6", "h6"),
         ("a3", "c4"),
         ("a6", "c5"),
-        ("h3", "a3"),
-        ("h6", "a6"),
-        ("a3", "b3"),
-        ("a6", "b6"),
-        ("b3", "c3"),
-        ("b6", "c6"),
-        ("c3", "d3"),
-        ("c6", "d6"),
-        ("d3", "e3"),
-        ("d6", "e6"),
-        ("e3", "f3"),
-        ("e6", "f6"),
-        ("f3", "g3"),
-        ("f6", "g6"),
         ("g3", "h3"),
         ("g6", "h6"),
         ("h3", "a3"),
@@ -186,10 +170,28 @@ object Tester {
         ("e6", "f6"),
         ("f3", "g3"),
         ("f6", "g6"),
-        ("g3", "h3"),
-        ("g6", "h6"),
         ("c4", "e5"),
         ("c5", "e4"),
+        ("g3", "h3"),
+        ("g6", "h6"),
+        ("h3", "a3"),
+        ("h6", "a6"),
+        ("a3", "b3"),
+        ("a6", "b6"),
+        ("b3", "c3"),
+        ("b6", "c6"),
+        ("c3", "d3"),
+        ("c6", "d6"),
+        ("d3", "e3"),
+        ("d6", "e6"),
+        ("e3", "f3"),
+        ("e6", "f6"),
+        ("f3", "g3"),
+        ("f6", "g6"),
+        ("e5", "g4"),
+        ("e4", "g5"),
+        ("g3", "h3"),
+        ("g6", "h6"),
         ("h3", "a3"),
         ("h6", "a6"),
         ("a3", "b3"),
@@ -209,6 +211,12 @@ object Tester {
         )
 
         runNormalTest("50moves1", moves, false)
+
+        if (!g.is3repetitions) {
+            println("[PASS] 50moves1 (valid state)")
+        } else {
+            println("[FAIL] 50moves1 (repetition detected)")
+        }
 
         if (g.is50moves) {
             println("[PASS] 50moves1 (valid state)")
@@ -319,10 +327,10 @@ object Tester {
         ("e6", "f6"),
         ("f3", "g3"),
         ("f6", "g6"),
-        ("g3", "h3"),
-        ("g6", "h6"),
         ("c4", "e5"),
         ("c5", "e4"),
+        ("g3", "h3"),
+        ("g6", "h6"),
         ("h3", "a3"),
         ("h6", "a6"),
         ("a3", "b3"),
@@ -366,7 +374,7 @@ object Tester {
             for (m <- moves) {
                 try {
                     g = g.move(Position(m._1), Position(m._2))
-                    //println("Move "+m+" ok")
+                    println("Move "+m+" ok")
                 } catch {
                     case e: Exception =>
                         throw new Exception("(move="+m+"):"+e.toString)
