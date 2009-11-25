@@ -4,6 +4,9 @@ all: scalafiles
 scalafiles:
 	fsc -unchecked -deprecation -classpath ${libs} -d classes `find . -name "*.scala"`
 
+run-tests: scalafiles
+	scala -cp classes:${libs} ChessServer.tests.Tester config-run.xml
+
 run-server: scalafiles
 	scala -cp classes:${libs} ChessServer.Main config-run.xml
 
