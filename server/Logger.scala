@@ -12,12 +12,19 @@ abstract class Logger {
 }
 
 class TerminalLogger extends Logger {
+    var ip: Option[String] = None;
+
+    def setIP(ip: String) = { this.ip = Some(ip) }
+    def getIP = ip match {
+        case Some(s) => "["+s+"]"
+        case None => ""
+    }
     val df = new SimpleDateFormat("dd-MMM-yy HH:mm:ss")
     def date = df.format(new Date())
 
-    def out(msg: String)  = println(date+" [>] "+msg)
-    def info(msg: String)   = println(date+" [-] "+msg)
-    def in(msg: String)   = println(date+" [<] "+msg)
-    def err(msg: String)  = println(date+" [!] "+msg)
-    def warn(msg: String) = println(date+" [w] "+msg)
+    def out(msg: String)  = println(date+" "+getIP+"[>] "+msg)
+    def info(msg: String)   = println(date+" "+getIP+"[-] "+msg)
+    def in(msg: String)   = println(date+" "+getIP+"[<] "+msg)
+    def err(msg: String)  = println(date+" "+getIP+"[!] "+msg)
+    def warn(msg: String) = println(date+" "+getIP+"[w] "+msg)
 }

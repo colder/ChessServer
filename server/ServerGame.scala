@@ -103,7 +103,7 @@ class ServerGame(val server: Server, val host: ServerClient, val opponent: Serve
                 case Resign(player) =>
                     op(player, game = game.resign(if (player == host) logic.White else logic.Black), <chess username={ player.username }><resign /></chess>, false) // ignore turn
                 case DrawAsk(player) =>
-                    op(player, game = game.drawAsk, <chess username={ player.username }><drawAsk /></chess>)
+                    op(player, game = game.drawAsk, <chess username={ player.username }><drawask /></chess>, false)
                 case DrawAccept(player) =>
                     op(player, game = game.drawAccept, <chess username={ player.username }><drawaccept /></chess>)
                 case DrawDecline(player) =>

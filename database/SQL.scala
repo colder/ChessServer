@@ -44,6 +44,12 @@ abstract class SQLConnection {
                 case ai: Int =>
                     stmt.setInt(index, ai)
                     index += 1
+                case ai: Double =>
+                    stmt.setDouble(index, ai)
+                    index += 1
+                case ai: Long =>
+                    stmt.setLong(index, ai)
+                    index += 1
                 case aai: List[_] =>
                     for (a <- aai) {
                         a match {

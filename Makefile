@@ -15,3 +15,6 @@ run-server-dev:
 
 run-client: scalafiles
 	scala -cp classes:${libs} ChessServer.MainClient
+
+run-stress-client: scalafiles
+	scala -cp classes:${libs} ChessServer.StressClient

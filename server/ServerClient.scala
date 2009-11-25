@@ -16,7 +16,9 @@ import scala.actors.Actor
 import scala.actors.Actor._
 
 case class ServerClient(server: Server, sock: Socket) extends Actor {
-    val log = server.log
+    /* Logger */
+    val log = new TerminalLogger
+    log.setIP(sock.getInetAddress().toString)
     var status: ClientStatus = Annonymous
     var username: String = ""
     var userid: Int = -1
