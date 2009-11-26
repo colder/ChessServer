@@ -38,15 +38,15 @@ class ServerGame(val server: Server, val host: ServerClient, val opponent: Serve
     }
 
     private def op(player: ServerClient, action: => Unit, dispatchMsg: xml.Node): Boolean =
-        op(player, action, dispatchMsg, true)
+        op(player, action, dispatchMsg, true, true)
 
-    private def op(player: ServerClient, action: => Unit, dispatchMsg: xml.Node, checkConditions: Boolean): Boolean = {
+    private def op(player: ServerClient, action: => Unit, dispatchMsg: xml.Node, checkValidGame: Boolean, checkTurn: Boolean): Boolean = {
         val oppUsername = otherplayer(player).username
 
-        if (checkConditions && (player == host && game.turn != logic.White || player != host && game.turn != logic.Black)) {
+        if (checkTurn && (player == host && game.turn != logic.White || player != host && game.turn != logic.Black)) {
             player ! SendChessNack(oppUsername, "Wait your turn!");
             false
-        } else if ( checkConditions && started == false) {
+        } else if ( checkValidGame && started == false) {
             player ! SendChessNack(oppUsername, "Wait for your opponent!");
             false
         } else {
@@ -57,6 +57,7 @@ class ServerGame(val server: Server, val host: ServerClient, val opponent: Serve
                 // Check the status of the game
                 game.status match {
                     case _ : logic.GameEnded =>
+                        dispatch(player, dispatchMsg)
                         end
                     case _ =>
                         dispatch(player, dispatchMsg)
@@ -101,9 +102,9 @@ class ServerGame(val server: Server, val host: ServerClient, val opponent: Serve
                 case MovePromote(player, from, to, pt) =>
                     op(player, game = game.move(from, to), <chess username={ player.username }><move from={ from.algNotation } to={ to.algNotation } promotion={ pt.ab } /></chess>)
                 case Resign(player) =>
-                    op(player, game = game.resign(if (player == host) logic.White else logic.Black), <chess username={ player.username }><resign /></chess>, false) // ignore turn
+                    op(player, game = game.resign(if (player == host) logic.White else logic.Black), <chess username={ player.username }><resign /></chess>, false, false) // ignore turn or unstarted game
                 case DrawAsk(player) =>
-                    op(player, game = game.drawAsk, <chess username={ player.username }><drawask /></chess>, false)
+                    op(player, game = game.drawAsk, <chess username={ player.username }><drawask /></chess>, true, false)
                 case DrawAccept(player) =>
                     op(player, game = game.drawAccept, <chess username={ player.username }><drawaccept /></chess>)
                 case DrawDecline(player) =>
