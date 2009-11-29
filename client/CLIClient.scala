@@ -82,7 +82,7 @@ class CLIClient {
 
     def start() = {
         var continue = true;
-        val sock = new Socket("localhost", 12345);
+        val sock = new Socket("localhost", 12347);
         val out = new PrintWriter(sock.getOutputStream(), true);
         val in = new BufferedReader(new InputStreamReader(sock.getInputStream()));
 
