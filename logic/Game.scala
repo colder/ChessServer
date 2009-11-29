@@ -32,19 +32,12 @@ case class Game(
 
     private def nextTurn: Game = {
         var nextTurn: ChessTeam = White;
-        var nextTimes  = timers;
-        var nextStatus = status;
 
         if (turn == White) {
             nextTurn = Black
         }
 
-        if (nextTimes._1 < 0) {
-            nextStatus = GameWinBlack
-        } else if (nextTimes._2 < 0 ) {
-            nextStatus = GameWinWhite
-        }
-        Game(board, nextTurn, boards, movesWithoutCapture, nextStatus, nextTimes, now);
+        Game(board, nextTurn, boards, movesWithoutCapture, status, times, turnStartTime).updateTimers;
     }
 
     private def setBoards(bs: Map[String, Int]): Game =
@@ -70,16 +63,29 @@ case class Game(
     }
 
     /* Interface to the clients */
-    def timers: (Long, Long) = {
-        if (status == GamePlaying) {
+
+    def updateTimers: Game = {
+        var nextTimes  = newTimers;
+        var nextStatus = status;
+
+        if (nextTimes._1 < 0) {
+            nextStatus = GameWinBlack
+        } else if (nextTimes._2 < 0 ) {
+            nextStatus = GameWinWhite
+        }
+
+        Game(board, turn, boards, movesWithoutCapture, nextStatus, nextTimes, now);
+    }
+
+    def newTimers: (Long, Long) = status match {
+        case s: GameRunning => 
             if (turn == White) {
                 (times._1-(now-turnStartTime), times._2)
             } else {
                 (times._1, times._2-(now-turnStartTime))
             }
-        } else {
+        case _ =>
             times
-        }
     }
 
     def start: Game = if (status == GameInit) {
@@ -89,31 +95,24 @@ case class Game(
     }
     def move(posFrom: Position, posTo: Position): Game = {
         if (status == GamePlaying) {
-            val ts = timers
-            if (ts._1 <= 0) {
-                setStatus(GameWinBlack)
-            } else if (ts._2 <= 0) {
-                setStatus(GameWinWhite)
-            } else {
-                // Check that the turn is valid
-                val g = board pieceAt posFrom match {
-                    case Some(Piece(color, _, _, _)) if color != turn =>
-                        throw GameException("Wait your turn!");
-                    case Some(Piece(White, Pawn, Position(_, 7), _)) =>
-                        throw GameException("You can't move without promoting your pawn!");
-                    case Some(Piece(Black, Pawn, Position(_, 2), _)) =>
-                        throw GameException("You can't move without promoting your pawn!");
-                    case _ =>
-                        val moveResult = board.performMove(posFrom, posTo);
-                        fromMoveResult(moveResult).nextTurn
-                }
+            // Check that the turn is valid
+            val g = board pieceAt posFrom match {
+                case Some(Piece(color, _, _, _)) if color != turn =>
+                    throw GameException("Wait your turn!");
+                case Some(Piece(White, Pawn, Position(_, 7), _)) =>
+                    throw GameException("You can't move without promoting your pawn!");
+                case Some(Piece(Black, Pawn, Position(_, 2), _)) =>
+                    throw GameException("You can't move without promoting your pawn!");
+                case _ =>
+                    val moveResult = board.performMove(posFrom, posTo);
+                    fromMoveResult(moveResult).nextTurn
+            }
 
-                // Check for checkmate
-                if (g.board.isCheckMate(g.turn)) {
-                    g.setStatus(if (g.turn == White) GameWinBlack else GameWinWhite)
-                } else {
-                    g
-                }
+            // Check for checkmate
+            if (g.board.isCheckMate(g.turn)) {
+                g.setStatus(if (g.turn == White) GameWinBlack else GameWinWhite)
+            } else {
+                g
             }
         } else {
             throw GameException("Can't move in this status: "+status);
@@ -122,40 +121,33 @@ case class Game(
 
     def moveAndPromote(posFrom: Position, posTo: Position, promotion: PieceType): Game = {
         if (status == GamePlaying) {
-            val ts = timers
-            if (ts._1 <= 0) {
-                setStatus(GameWinBlack)
-            } else if (ts._2 <= 0) {
-                setStatus(GameWinWhite)
-            } else {
-                val g = board pieceAt posFrom match {
-                    case Some(Piece(color, _, _, _)) if color != turn =>
-                        throw GameException("Wait your turn!");
-                    case Some(Piece(White, Pawn, Position(_, 7), _)) | Some(Piece(Black, Pawn, Position(_, 2), _)) =>
-                        val moveResult = board.performMove(posFrom, posTo);
-                        val newGame = fromMoveResult(moveResult).nextTurn
-                        newGame.board pieceAt posTo match {
-                            case Some(pi) =>
-                                Game(newGame.board.promote(pi, promotion),
-                                     newGame.turn,
-                                     HashMap[String, Int](),
-                                     newGame.movesWithoutCapture,
-                                     newGame.status,
-                                     newGame.times,
-                                     newGame.turnStartTime)
-                            case _ =>
-                                throw GameException("woops: something went wrong!")
-                        }
-                    case _ =>
-                        throw GameException("Invalid promotion, piece type or position invalid")
-                }
+            val g = board pieceAt posFrom match {
+                case Some(Piece(color, _, _, _)) if color != turn =>
+                    throw GameException("Wait your turn!");
+                case Some(Piece(White, Pawn, Position(_, 7), _)) | Some(Piece(Black, Pawn, Position(_, 2), _)) =>
+                    val moveResult = board.performMove(posFrom, posTo);
+                    val newGame = fromMoveResult(moveResult).nextTurn
+                    newGame.board pieceAt posTo match {
+                        case Some(pi) =>
+                            Game(newGame.board.promote(pi, promotion),
+                                 newGame.turn,
+                                 HashMap[String, Int](),
+                                 newGame.movesWithoutCapture,
+                                 newGame.status,
+                                 newGame.times,
+                                 newGame.turnStartTime)
+                        case _ =>
+                            throw GameException("woops: something went wrong!")
+                    }
+                case _ =>
+                    throw GameException("Invalid promotion, piece type or position invalid")
+            }
 
-                // Check for checkmate
-                if (g.board.isCheckMate(g.turn)) {
-                    g.setStatus(if (g.turn == White) GameWinBlack else GameWinWhite)
-                } else {
-                    g
-                }
+            // Check for checkmate
+            if (g.board.isCheckMate(g.turn)) {
+                g.setStatus(if (g.turn == White) GameWinBlack else GameWinWhite)
+            } else {
+                g
             }
         } else {
             throw GameException("Can't move in this state: "+status);
@@ -200,6 +192,7 @@ case class Game(
     }
 
     def is3repetitions = boards.values exists { _ >= 3 }
+
     def is50moves = movesWithoutCapture >= 99
 
     def isDrawCondition = {

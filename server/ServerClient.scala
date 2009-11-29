@@ -292,7 +292,11 @@ case class ServerClient(server: Server, sock: Socket) extends Actor {
                     games(game.host.username) = game
 
                 case OnGameEnd(game) =>
-                    games -= game.host.username
+                    if (game.host == this) {
+                        games -= game.opponent.username
+                    } else {
+                        games -= game.host.username
+                    }
 
                 case CloseClient =>
                     continue = false
