@@ -112,7 +112,7 @@ class ServerGame(val server: Server, val host: ServerClient, val opponent: Serve
                 case Move(player, from, to) =>
                     op(player, game = game.move(from, to), <chess username={ player.username }><move from={ from.algNotation } to={ to.algNotation } /></chess>)
                 case MovePromote(player, from, to, pt) =>
-                    op(player, game = game.moveAndPromote(from, to, pt), <chess username={ player.username }><move from={ from.algNotation } to={ to.algNotation } promotion={ pt.ab } /></chess>)
+                    op(player, game = game.moveAndPromote(from, to, pt), <chess username={ player.username }><movepromote from={ from.algNotation } to={ to.algNotation } promotion={ pt.ab } /></chess>)
                 case Resign(player) =>
                     op(player, game = game.resign(if (player == host) logic.White else logic.Black), <chess username={ player.username }><resign /></chess>, false, false) // ignore turn or unstarted game
                 case DrawAsk(player) =>
