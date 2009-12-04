@@ -142,6 +142,7 @@ case class ServerClient(server: Server, sock: Socket) extends Actor {
                         if (game.host != this) {
                             (game !? InviteDecline) match {
                                 case Success(_) =>
+                                    sendChessAck(username)
                                     server ! GameEnd(game)
                                 case Failure(msg) =>
                                     sendChessNack(username, "Failed to cancel invitation: "+msg)
