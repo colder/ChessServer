@@ -111,6 +111,8 @@ case class Game(
             // Check for checkmate
             if (g.board.isCheckMate(g.turn)) {
                 g.setStatus(if (g.turn == White) GameWinBlack else GameWinWhite)
+            } else if (g.board.isStaleMate(g.turn)) {
+                g.setStatus(GameDraw)
             } else {
                 g
             }

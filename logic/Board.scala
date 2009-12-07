@@ -34,6 +34,11 @@ case class Board(val slots: TreeHashMap[Position, Piece], val lastMove: Move) {
         !isSafeFor(king(color)) && slots.values.filter{ _.color == color }.map{ movesOptionsCheckKingSafety(_) }.forall{ _.size == 0 }
     }
 
+    /* Checks for stale mate */
+    def isStaleMate(color: ChessTeam) = {
+        isSafeFor(king(color)) && slots.values.filter{ _.color == color }.map{ movesOptionsCheckKingSafety(_) }.forall{ _.size == 0 }
+    }
+
     /* Checks if a piece is safe where it is */
     def isSafeFor(pi: Piece): Boolean = isSafe(pi.color, pi.pos);
     
