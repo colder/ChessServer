@@ -69,11 +69,19 @@ case class Game(
         var nextStatus = status;
 
         if (nextTimes._1 < 0) {
-            nextStatus = GameWinBlack
             // check if Blacks have sufficient material?
+            if (insufficientForCheckmate(Black)) {
+                nextStatus = GameDraw
+            } else {
+                nextStatus = GameWinBlack
+            }
         } else if (nextTimes._2 < 0 ) {
-            nextStatus = GameWinWhite
             // check if Whites have sufficient material?
+            if (insufficientForCheckmate(White)) {
+                nextStatus = GameDraw
+            } else {
+                nextStatus = GameWinWhite
+            }
         }
 
         Game(board, turn, boards, movesWithoutCapture, nextStatus, nextTimes, now);
@@ -205,7 +213,13 @@ case class Game(
         is50moves || is3repetitions || insufficientForCheckmate
     }
 
-    def insufficientForCheckmate = {
+    def insufficientForCheckmate(team: ChessTeam): Boolean = {
+        val teamPieces =  board.slots.values filter (_.color == team) toList
+
+        teamPieces.size == 1 || insufficientForCheckmate
+    }
+
+    def insufficientForCheckmate: Boolean = {
         // King vs King
         val kk = board.slots.size == 2
 
