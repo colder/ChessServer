@@ -70,8 +70,10 @@ case class Game(
 
         if (nextTimes._1 < 0) {
             nextStatus = GameWinBlack
+            // check if Blacks have sufficient material?
         } else if (nextTimes._2 < 0 ) {
             nextStatus = GameWinWhite
+            // check if Whites have sufficient material?
         }
 
         Game(board, turn, boards, movesWithoutCapture, nextStatus, nextTimes, now);
@@ -111,7 +113,7 @@ case class Game(
             // Check for checkmate
             if (g.board.isCheckMate(g.turn)) {
                 g.setStatus(if (g.turn == White) GameWinBlack else GameWinWhite)
-            } else if (g.board.isStaleMate(g.turn)) {
+            } else if (g.board.isStaleMate(g.turn) || insufficientForCheckmate) {
                 g.setStatus(GameDraw)
             } else {
                 g
@@ -148,6 +150,8 @@ case class Game(
             // Check for checkmate
             if (g.board.isCheckMate(g.turn)) {
                 g.setStatus(if (g.turn == White) GameWinBlack else GameWinWhite)
+            } else if (g.board.isStaleMate(g.turn) || insufficientForCheckmate) {
+                g.setStatus(GameDraw)
             } else {
                 g
             }
@@ -201,6 +205,18 @@ case class Game(
         is50moves || is3repetitions || insufficientForCheckmate
     }
 
+    def insufficientForCheckmate(team: ChessTeam) = {
+        val teampieces = board.slots.values filter (p => p.color = team) toList
+
+        val k = teampieces == 1
+
+        val kn = teampieces.size == 2 && teampieces.exists(_.typ == Knight)
+
+        val kb = {
+
+        }
+
+    }
     def insufficientForCheckmate = {
         // King vs King
         val kk = board.slots.size == 2
@@ -209,7 +225,7 @@ case class Game(
         val kkb = board.slots.size == 3 && board.slots.values.exists(_.typ == Bishop)
 
         // King vs King + Knight
-        val kkn = board.slots.size == 3 && board.slots.values.exists(_.typ == Bishop)
+        val kkn = board.slots.size == 3 && board.slots.values.exists(_.typ == Knight)
 
         // King + Bishop(s) vs King + Bishop(s) where the bishops are on the same color
         val kkbb = if(board.slots.values.forall(p => p.typ == Bishop || p.typ == King)) {
