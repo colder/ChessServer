@@ -150,7 +150,7 @@ case class Game(
             // Check for checkmate
             if (g.board.isCheckMate(g.turn)) {
                 g.setStatus(if (g.turn == White) GameWinBlack else GameWinWhite)
-            } else if (g.board.isStaleMate(g.turn) || insufficientForCheckmate) {
+            } else if (g.board.isStaleMate(g.turn) || insufficientForCheckmate) {
                 g.setStatus(GameDraw)
             } else {
                 g
@@ -205,18 +205,6 @@ case class Game(
         is50moves || is3repetitions || insufficientForCheckmate
     }
 
-    def insufficientForCheckmate(team: ChessTeam) = {
-        val teampieces = board.slots.values filter (p => p.color = team) toList
-
-        val k = teampieces == 1
-
-        val kn = teampieces.size == 2 && teampieces.exists(_.typ == Knight)
-
-        val kb = {
-
-        }
-
-    }
     def insufficientForCheckmate = {
         // King vs King
         val kk = board.slots.size == 2
