@@ -70,14 +70,14 @@ case class Game(
 
         if (nextTimes._1 < 0) {
             // check if Blacks have sufficient material?
-            if (insufficientForCheckmate(Black)) {
+            if (insufficientForCheckmate(board, Black)) {
                 nextStatus = GameDraw
             } else {
                 nextStatus = GameWinBlack
             }
         } else if (nextTimes._2 < 0 ) {
             // check if Whites have sufficient material?
-            if (insufficientForCheckmate(White)) {
+            if (insufficientForCheckmate(board, White)) {
                 nextStatus = GameDraw
             } else {
                 nextStatus = GameWinWhite
@@ -121,7 +121,7 @@ case class Game(
             // Check for checkmate
             if (g.board.isCheckMate(g.turn)) {
                 g.setStatus(if (g.turn == White) GameWinBlack else GameWinWhite)
-            } else if (g.board.isStaleMate(g.turn) || insufficientForCheckmate) {
+            } else if (g.board.isStaleMate(g.turn) || insufficientForCheckmate(g.board)) {
                 g.setStatus(GameDraw)
             } else {
                 g
@@ -158,7 +158,7 @@ case class Game(
             // Check for checkmate
             if (g.board.isCheckMate(g.turn)) {
                 g.setStatus(if (g.turn == White) GameWinBlack else GameWinWhite)
-            } else if (g.board.isStaleMate(g.turn) || insufficientForCheckmate) {
+            } else if (g.board.isStaleMate(g.turn) || insufficientForCheckmate(g.board)) {
                 g.setStatus(GameDraw)
             } else {
                 g
@@ -210,16 +210,16 @@ case class Game(
     def is50moves = movesWithoutCapture >= 99
 
     def isDrawCondition = {
-        is50moves || is3repetitions || insufficientForCheckmate
+        is50moves || is3repetitions || insufficientForCheckmate(board)
     }
 
-    def insufficientForCheckmate(team: ChessTeam): Boolean = {
+    def insufficientForCheckmate(board: Board, team: ChessTeam): Boolean = {
         val teamPieces =  board.slots.values filter (_.color == team) toList
 
-        teamPieces.size == 1 || insufficientForCheckmate
+        teamPieces.size == 1 || insufficientForCheckmate(board)
     }
 
-    def insufficientForCheckmate: Boolean = {
+    def insufficientForCheckmate(board: Board): Boolean = {
         // King vs King
         val kk = board.slots.size == 2
 
