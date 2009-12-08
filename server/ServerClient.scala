@@ -197,15 +197,15 @@ case class ServerClient(server: Server, sock: Socket) extends Actor {
 
                     case Elem(_, "get", attr, _) if attr.get("username") != None =>
                         val username = attr("username").toString
+                        val logged = server !? GetUser(username) match {
+                            case Some(x) => "yes"
+                            case None => "no"
+                        }
                         server !? GetGPS(username) match {
                             case Some(pos: GPSPosition) =>
-                                val logged = server !? GetUser(username) match {
-                                    case Some(x) => "yes"
-                                    case None => "no"
-                                }
                                 send(<gps><position username={username} long={pos.long.toString} lat={pos.lat.toString} logged={ logged } /></gps>)
                             case None =>
-                                send(<gps><position username={username} long="N/A" lat="N/A" logged="no" /></gps>)
+                                send(<gps><position username={username} long="N/A" lat="N/A" logged={ logged } /></gps>)
                         }
 
                     case _ =>
